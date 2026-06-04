@@ -1,0 +1,5 @@
+# dados (não versionar relatórios reais)
+*.csv
+*.xlsx
+*.xls
+.DS_Store

@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard SUPORTE · ORPEN</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --roxo:#6a1b6a; --roxo-esc:#4a124a; --roxo-claro:#8e3a8e;
+    --magenta:#9c1c7a; --bg:#f4eef4; --card:#fff; --linha:#d9c7d9;
+    --txt:#2b1430; --txt2:#6b5470; --ok:#2e7d32; --bad:#c62828;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:"Segoe UI",system-ui,sans-serif;font-size:13px}
+  .wrap{max-width:1320px;margin:0 auto;padding:16px}
+  header.app{display:flex;align-items:center;gap:14px;margin-bottom:14px;flex-wrap:wrap}
+  .logo{font-size:30px;font-weight:800;letter-spacing:-1px;color:var(--roxo);
+    display:flex;align-items:center;gap:8px}
+  .logo .dot{width:26px;height:26px;border-radius:50% 50% 50% 0;
+    background:linear-gradient(135deg,var(--roxo),var(--roxo-claro));
+    transform:rotate(-45deg);display:inline-block}
+  .upbar{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .upbtn{background:var(--roxo);color:#fff;border:none;border-radius:6px;
+    padding:8px 14px;font-size:12px;cursor:pointer;font-weight:600}
+  .upbtn:hover{background:var(--roxo-esc)}
+  .upbtn.sec{background:#fff;color:var(--roxo);border:1px solid var(--roxo)}
+  .tag{font-size:11px;color:var(--txt2)}
+  .tag.ok{color:var(--ok);font-weight:600}
+  .tag.err{color:var(--bad);font-weight:600}
+
+  .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:14px}
+  .kpi{background:var(--card);border:1px solid var(--linha);border-radius:8px;
+    overflow:hidden;box-shadow:0 1px 3px rgba(74,18,74,.08)}
+  .kpi h4{margin:0;background:var(--roxo);color:#fff;font-size:11px;font-weight:600;
+    padding:6px 8px;text-align:center}
+  .kpi .val{font-size:30px;font-weight:800;text-align:center;padding:14px 4px}
+
+  .panel{background:var(--card);border:1px solid var(--linha);border-radius:8px;
+    padding:12px;margin-bottom:14px;box-shadow:0 1px 3px rgba(74,18,74,.06)}
+  .panel h3{margin:0 0 10px;font-size:12px;color:var(--roxo);font-weight:700;
+    text-transform:uppercase;letter-spacing:.5px}
+
+  .chart{display:flex;align-items:flex-end;gap:6px;height:190px;padding-top:18px;overflow-x:auto}
+  .bar-col{display:flex;flex-direction:column;align-items:center;flex:1;min-width:26px}
+  .bar{width:60%;background:linear-gradient(180deg,var(--roxo-claro),var(--roxo));
+    border-radius:3px 3px 0 0;position:relative;transition:.4s}
+  .bar:hover{background:var(--magenta)}
+  .bar .lbl{position:absolute;top:-16px;left:50%;transform:translateX(-50%);
+    font-size:10px;font-weight:700}
+  .bar-col .x{font-size:9px;color:var(--txt2);margin-top:4px;white-space:nowrap;
+    transform:rotate(-45deg);transform-origin:top left;height:34px}
+
+  .agentes{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:14px}
+  .ag{border:1px solid var(--linha);border-radius:8px;overflow:hidden;background:var(--card)}
+  .ag .nome{background:var(--roxo);color:#fff;text-align:center;font-weight:700;padding:7px;font-size:13px}
+  .ag .grid{display:grid;grid-template-columns:1fr 1fr}
+  .ag .cell{padding:8px;border-top:1px solid var(--linha);border-right:1px solid var(--linha)}
+  .ag .cell:nth-child(2n){border-right:none}
+  .ag .cell .k{font-size:9px;color:#fff;background:var(--roxo-claro);
+    display:block;margin:-8px -8px 6px;padding:3px 8px;font-weight:600}
+  .ag .cell .v{font-size:18px;font-weight:800}
+  .ag .med{background:var(--roxo-esc);color:#fff;text-align:center;padding:6px}
+  .ag .med .k{font-size:10px;opacity:.85}
+  .ag .med .v{font-size:18px;font-weight:800}
+
+  .hbars{display:flex;flex-direction:column;gap:14px;padding:6px 0}
+  .hbar-row{display:flex;align-items:center;gap:10px}
+  .hbar-row .name{width:130px;font-size:11px;text-align:right;color:var(--txt2);font-weight:600}
+  .hbar-track{flex:1;background:#efe3ef;border-radius:4px;height:26px;position:relative}
+  .hbar-fill{height:100%;background:linear-gradient(90deg,var(--roxo),var(--roxo-claro));
+    border-radius:4px;display:flex;align-items:center;justify-content:flex-end;
+    padding-right:8px;color:#fff;font-weight:700;font-size:12px;min-width:30px;transition:.5s}
+
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .empty{text-align:center;color:var(--txt2);padding:40px;font-style:italic}
+
+  .derbox{background:#fbf6fb;border:1px dashed var(--linha);border-radius:8px;
+    padding:10px 12px;margin-bottom:14px;font-size:11px;color:var(--txt2)}
+  .derbox b{color:var(--roxo)}
+  .cfg{margin-bottom:14px}
+  .cfg summary{cursor:pointer;font-size:12px;color:var(--roxo);font-weight:700;
+    padding:8px 12px;background:var(--card);border:1px solid var(--linha);border-radius:8px}
+  .cfg .body{background:var(--card);border:1px solid var(--linha);border-top:none;
+    border-radius:0 0 8px 8px;padding:12px}
+  .cfg label{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px}
+  .cfg input[type=text]{border:1px solid var(--linha);border-radius:4px;padding:3px 6px;font-size:12px}
+  @media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.two{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="app">
+    <div class="logo"><span class="dot"></span>orpen</div>
+    <div class="upbar">
+      <label class="upbtn">📄 Relatório ORPEN (R97)
+        <input id="fA" type="file" accept=".csv,.xlsx,.xls" hidden></label>
+      <span id="tagA" class="tag">nenhum arquivo</span>
+      <label class="upbtn sec">📄 Relatório QUALITOR
+        <input id="fB" type="file" accept=".csv,.xlsx,.xls" hidden></label>
+      <span id="tagB" class="tag">nenhum arquivo</span>
+    </div>
+  </header>
+
+  <div id="derbox" class="derbox" style="display:none"></div>
+  <details id="cfg" class="cfg" style="display:none">
+    <summary>⚙ Configurar agentes exibidos</summary>
+    <div class="body" id="cfgBody"></div>
+  </details>
+
+  <div class="kpis">
+    <div class="kpi"><h4>Total Atendimentos ORPEN</h4><div class="val" id="kTotO">—</div></div>
+    <div class="kpi"><h4>Satisfação Média</h4><div class="val" id="kSat">—</div></div>
+    <div class="kpi"><h4>Total Chamados Qualitor</h4><div class="val" id="kTotQ">—</div></div>
+    <div class="kpi"><h4>Chamados Dentro do SLA</h4><div class="val" id="kSla">—</div></div>
+    <div class="kpi"><h4>Período</h4><div class="val" id="kPer" style="font-size:22px">—</div></div>
+  </div>
+
+  <div class="panel">
+    <h3>Atendimentos por dia</h3>
+    <div id="chart" class="chart"><div class="empty">Suba o relatório ORPEN para ver o gráfico.</div></div>
+  </div>
+
+  <div id="agentesBox" class="agentes"></div>
+
+  <div class="two">
+    <div class="panel"><h3>Atendimentos por Agente Finalizador</h3>
+      <div id="hbA" class="hbars"><div class="empty">—</div></div></div>
+    <div class="panel"><h3>Chamados por Responsável (Qualitor)</h3>
+      <div id="hbB" class="hbars"><div class="empty">—</div></div></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const MESES=["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
+let ORPEN=null, QUAL=null;            // dados processados
+let AGENTS=[];                         // [{nome, show, alias}]
+const derInfo={orpen:[],qual:[]};
+
+/* ---------- util ---------- */
+const norm=s=>String(s==null?'':s).normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+  .toLowerCase().trim().replace(/\s+/g,' ');
+function num(v){if(v==null)return NaN;let s=String(v).trim().replace(',','.');
+  let n=parseFloat(s);return isNaN(n)?NaN:n;}
+function hmsToSec(v){if(!v)return null;const p=String(v).trim().split(':');
+  if(p.length<2)return null;const n=p.map(Number);if(n.some(isNaN))return null;
+  return p.length===3?n[0]*3600+n[1]*60+n[2]:n[0]*3600+n[1]*60;}
+function secToHMS(s){s=Math.round(s);const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),x=s%60;
+  return [h,m,x].map(z=>String(z).padStart(2,'0')).join(':');}
+function minToHM(min){const h=Math.floor(min/60),m=Math.round(min%60);return h+':'+String(m).padStart(2,'0');}
+// aceita "dd/mm/aaaa" e "dd/mm/aaaa - HH:MM" e "dd/mm/aaaa HH:MM"
+function parseDateBR(v){
+  if(v==null)return null;let s=String(v).trim();if(!s)return null;
+  s=s.replace(' - ',' ');
+  const m=s.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})(?:\s+(\d{1,2}):(\d{2}))?/);
+  if(!m)return null;
+  let y=+m[3];if(y<100)y+=2000;
+  return new Date(y,+m[2]-1,+m[1],m[4]?+m[4]:0,m[5]?+m[5]:0);
+}
+function dateKey(d){return d?`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`:null;}
+
+/* ---------- column matcher (tolerante) ---------- */
+function makeColResolver(headers){
+  const map={};headers.forEach(h=>map[norm(h)]=h);
+  return function(aliases){
+    for(const a of aliases){const k=norm(a);if(map[k])return map[k];}
+    // fallback: contains
+    for(const a of aliases){const k=norm(a);
+      for(const nk in map){if(nk.includes(k)||k.includes(nk))return map[nk];}}
+    return null;
+  };
+}
+
+/* ---------- leitura de arquivo (csv ou xlsx) ---------- */
+function readFile(file, cb){
+  const ext=file.name.toLowerCase().split('.').pop();
+  if(ext==='xlsx'||ext==='xls'){
+    const r=new FileReader();
+    r.onload=e=>{
+      const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rowsArr=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,defval:''});
+      cb(rowsArrToObjects(rowsArr));
+    };
+    r.readAsArrayBuffer(file);
+  }else{
+    Papa.parse(file,{header:false,skipEmptyLines:true,delimiter:';',encoding:'ISO-8859-1',
+      complete:res=>cb(rowsArrToObjects(res.data))});
+  }
+}
+// localiza a linha de cabeçalho real (que contém "Tipo de Atendimento" ou "Atendimento"+"Responsável")
+function rowsArrToObjects(arr){
+  if(!arr||!arr.length)return[];
+  let hi=0;
+  for(let i=0;i<Math.min(arr.length,15);i++){
+    const row=(arr[i]||[]).map(norm);
+    const hasOrpen=row.includes('tipo de atendimento')||row.includes('protocolo');
+    const hasQual=row.includes('atendimento')&&(row.includes('responsavel')||row.includes('horas trabalhadas'));
+    if(hasOrpen||hasQual){hi=i;break;}
+  }
+  const headers=(arr[hi]||[]).map(h=>String(h).trim());
+  const out=[];
+  for(let i=hi+1;i<arr.length;i++){
+    const row=arr[i]||[];if(row.every(c=>String(c).trim()===''))continue;
+    const o={};headers.forEach((h,j)=>o[h]=row[j]!=null?row[j]:'');out.push(o);
+  }
+  return out;
+}
+
+/* ---------- classificação do relatório ---------- */
+function classify(rows){
+  if(!rows.length)return null;
+  const cols=Object.keys(rows[0]).map(norm);
+  const qualScore=['responsavel','horas trabalhadas','previsao de resposta','encerramento']
+    .filter(c=>cols.some(x=>x.includes(c))).length;
+  const orpenScore=['protocolo','agentes','tempo de resposta (primeiro agente)','tabulacao','nota']
+    .filter(c=>cols.some(x=>x.includes(c))).length;
+  return qualScore>orpenScore?'qualitor':'orpen';
+}
+
+/* ---------- LOCALIZAR (Excel) ---------- */
+// posição (1-based) da 1ª ocorrência da chave no texto, ou 999
+function localizar(key,txt){
+  if(txt==null)return 999;
+  const i=String(txt).indexOf(key);
+  return i>=0?i+1:999;
+}
+// primeira palavra do nome do agente (chave de busca, como no Excel: "Renan","André","Gabriel")
+function chave(nome){return String(nome).trim().split(/\s+/)[0];}
+
+/* ---------- processar ORPEN ---------- */
+function processOrpen(rows){
+  derInfo.orpen=[];
+  const R=makeColResolver(Object.keys(rows[0]));
+  const cAg=R(['Agentes']);
+  const cFimExist=R(['Agente Finalizador']);
+  const cNota=R(['Nota']);
+  const cData=R(['Data','Primeira mensagem do cliente']);
+  const cResp=R(['Tempo de resposta (primeiro agente)','Tempo de resposta']);
+
+  if(!cFimExist)derInfo.orpen.push('Agente Finalizador (via LOCALIZAR na coluna Agentes)');
+  if(!R(['Data'])&&cData)derInfo.orpen.push('Data (extraída de "'+cData+'")');
+
+  // detectar agentes candidatos a partir da coluna Agentes (todos os nomes que aparecem)
+  const nomesSet=new Set();
+  rows.forEach(r=>{const a=r[cAg];if(a)String(a).split('>').forEach(n=>{n=n.trim();if(n)nomesSet.add(n);});});
+
+  // finalizador por linha
+  function finalizadorLinha(r){
+    if(cFimExist&&r[cFimExist])return String(r[cFimExist]).trim();
+    const txt=r[cAg];
+    let best=null,bestPos=-1;
+    activeAgentes().forEach(ag=>{
+      const p=localizar(chave(ag),txt);
+      if(p!==999&&p>bestPos){bestPos=p;best=ag;}
+    });
+    return best||'Outros';
+  }
+
+  return {rows,cAg,cFimExist,cNota,cData,cResp,finalizadorLinha,nomes:[...nomesSet]};
+}
+
+/* ---------- processar QUALITOR ---------- */
+function processQual(rows){
+  derInfo.qual=[];
+  const R=makeColResolver(Object.keys(rows[0]));
+  const cResp=R(['Responsável','Responsavel']);
+  const cHoras=R(['Horas trabalhadas']);
+  const cSit=R(['Situação','Situacao']);
+  const cEnc=R(['Encerramento']);
+  const cPrev=R(['Previsão de resposta','Previsao de resposta']);
+  const cDiaExist=R(['Dia']);
+  const cAbert=R(['Abertura']);
+  const cSlaExist=R(['Dentro do SLA?','Dentro do SLA']);
+
+  if(!cSlaExist)derInfo.qual.push('Dentro do SLA (Encerrado + Encerramento ≤ Previsão de resposta)');
+  if(!cDiaExist)derInfo.qual.push('Dia (extraído de "'+(cAbert||'Abertura')+'")');
+
+  function dentroSLA(r){
+    if(cSlaExist&&r[cSlaExist]!=='')return norm(r[cSlaExist])==='no prazo';
+    const sit=norm(r[cSit]);
+    if(sit!=='encerrado')return false;
+    const enc=parseDateBR(r[cEnc]),prev=parseDateBR(r[cPrev]);
+    return enc&&prev&&enc<=prev;
+  }
+  function diaLinha(r){
+    if(cDiaExist&&r[cDiaExist])return dateKey(parseDateBR(r[cDiaExist]));
+    return dateKey(parseDateBR(r[cAbert]));
+  }
+  return {rows,cResp,cHoras,cSit,cEnc,cPrev,dentroSLA,diaLinha};
+}
+
+/* ---------- agentes ativos ---------- */
+function activeAgentes(){return AGENTS.filter(a=>a.show).map(a=>a.alias||a.nome);}
+function rebuildAgentList(){
+  const set=new Map(); // nome -> obj
+  if(ORPEN)ORPEN.nomes.forEach(n=>{if(!set.has(n))set.set(n,{nome:n,show:false,alias:''});});
+  // marcar como show os que realmente finalizam algo
+  if(ORPEN){
+    const finSet=new Set();ORPEN.rows.forEach(r=>finSet.add(ORPEN.finalizadorLinha(r)));
+    finSet.forEach(n=>{if(n!=='Outros'){if(!set.has(n))set.set(n,{nome:n,show:true,alias:''});else set.get(n).show=true;}});
+  }
+  if(QUAL)QUAL.rows.forEach(r=>{const n=String(r[QUAL.cResp]||'').trim();
+    if(n){if(!set.has(n))set.set(n,{nome:n,show:true,alias:''});else set.get(n).show=true;}});
+  // preserva config anterior
+  const prev={};AGENTS.forEach(a=>prev[a.nome]=a);
+  AGENTS=[...set.values()].map(a=>prev[a.nome]?prev[a.nome]:a);
+}
+
+/* ---------- cálculos por agente ---------- */
+function calcAgente(nome){
+  const r={atend:0,notas:[],resp:[],datasO:new Set(),
+           horasMin:0,chamados:0,noPrazo:0,datasQ:new Set()};
+  if(ORPEN){
+    ORPEN.rows.forEach(row=>{
+      if(ORPEN.finalizadorLinha(row)!==nome)return;
+      r.atend++;
+      const nt=num(row[ORPEN.cNota]);if(!isNaN(nt))r.notas.push(nt);
+      const rs=hmsToSec(row[ORPEN.cResp]);if(rs!=null)r.resp.push(rs);
+      const d=parseDateBR(row[ORPEN.cData]);if(d)r.datasO.add(dateKey(d));
+    });
+  }
+  if(QUAL){
+    QUAL.rows.forEach(row=>{
+      if(String(row[QUAL.cResp]||'').trim()!==nome)return;
+      r.chamados++;
+      const s=hmsToSec(row[QUAL.cHoras]);if(s!=null)r.horasMin+=s/60;
+      if(QUAL.dentroSLA(row))r.noPrazo++;
+      const dk=QUAL.diaLinha(row);if(dk)r.datasQ.add(dk);
+    });
+  }
+  return r;
+}
+
+/* ---------- RENDER ---------- */
+function render(){
+  // derbox
+  const der=[];
+  if(derInfo.orpen.length)der.push('<b>Orpen:</b> '+derInfo.orpen.join('; '));
+  if(derInfo.qual.length)der.push('<b>Qualitor:</b> '+derInfo.qual.join('; '));
+  const db=document.getElementById('derbox');
+  if(der.length){db.style.display='block';db.innerHTML='Campos derivados automaticamente — '+der.join(' &nbsp;·&nbsp; ');}
+  else db.style.display='none';
+
+  // KPIs
+  if(ORPEN){
+    let tot=0,notas=[],datas=new Set();
+    ORPEN.rows.forEach(r=>{const f=ORPEN.finalizadorLinha(r);
+      if(f!=='Outros')tot++;
+      const nt=num(r[ORPEN.cNota]);if(!isNaN(nt))notas.push(nt);
+      const d=parseDateBR(r[ORPEN.cData]);if(d)datas.add(d.getTime());});
+    document.getElementById('kTotO').textContent=tot;
+    document.getElementById('kSat').textContent=notas.length?(notas.reduce((a,b)=>a+b)/notas.length).toFixed(2).replace('.',','):'—';
+    if(datas.size){const dt=new Date(Math.min(...datas));
+      document.getElementById('kPer').textContent=MESES[dt.getMonth()]+'/'+String(dt.getFullYear()).slice(2);}
+  }
+  if(QUAL){
+    document.getElementById('kTotQ').textContent=QUAL.rows.length;
+    let sla=0;QUAL.rows.forEach(r=>{if(QUAL.dentroSLA(r))sla++;});
+    document.getElementById('kSla').textContent=sla;
+  }
+
+  // chart por dia
+  if(ORPEN){
+    const dia={};ORPEN.rows.forEach(r=>{const d=parseDateBR(r[ORPEN.cData]);if(!d)return;
+      const k=dateKey(d);dia[k]=(dia[k]||0)+1;});
+    const keys=Object.keys(dia).sort((a,b)=>parseDateBR(a)-parseDateBR(b));
+    const max=Math.max(...keys.map(k=>dia[k]),1);
+    const c=document.getElementById('chart');c.innerHTML='';
+    keys.forEach(k=>{const v=dia[k];const col=document.createElement('div');col.className='bar-col';
+      col.innerHTML=`<div class="bar" style="height:${Math.max(6,v/max*140)}px"><span class="lbl">${v}</span></div><div class="x">${k.slice(0,5)}</div>`;
+      c.appendChild(col);});
+  }
+
+  // cards agentes
+  const box=document.getElementById('agentesBox');box.innerHTML='';
+  activeAgentes().forEach(nome=>{
+    const r=calcAgente(nome);
+    const sat=r.notas.length?(r.notas.reduce((a,b)=>a+b)/r.notas.length).toFixed(2).replace('.',','):'—';
+    const slaAt=r.resp.length?secToHMS(r.resp.reduce((a,b)=>a+b)/r.resp.length):'—';
+    const medAt=r.datasO.size?Math.round(r.atend/r.datasO.size):'—';
+    const horas=QUAL?minToHM(r.horasMin):'—';
+    const slaServ=(QUAL&&r.chamados)?Math.round(r.noPrazo/r.chamados*100)+'%':'—';
+    const medCh=r.datasQ.size?Math.round(r.chamados/r.datasQ.size):'—';
+    const el=document.createElement('div');el.className='ag';
+    el.innerHTML=`<div class="nome">${nome}</div>
+      <div class="grid">
+        <div class="cell"><span class="k">Horas Trabalhadas</span><span class="v">${horas}</span></div>
+        <div class="cell"><span class="k">SLA de serviço</span><span class="v">${slaServ}</span></div>
+        <div class="cell"><span class="k">Atendimentos Orpen</span><span class="v">${ORPEN?r.atend:'—'}</span></div>
+        <div class="cell"><span class="k">Satisfação</span><span class="v">${sat}</span></div>
+        <div class="cell"><span class="k">SLA de atendimento</span><span class="v">${slaAt}</span></div>
+        <div class="cell"><span class="k">Média de Atendimentos/Dia</span><span class="v">${medAt}</span></div>
+      </div>
+      <div class="med"><span class="k">Média de Chamados/Dia</span><br><span class="v">${medCh}</span></div>`;
+    box.appendChild(el);
+  });
+
+  // hbars
+  const act=activeAgentes();
+  if(ORPEN){
+    const v=act.map(n=>calcAgente(n).atend);const mx=Math.max(...v,1);
+    document.getElementById('hbA').innerHTML=act.map((n,i)=>
+      `<div class="hbar-row"><div class="name">${n}</div><div class="hbar-track"><div class="hbar-fill" style="width:${v[i]/mx*100}%">${v[i]}</div></div></div>`).join('')||'<div class="empty">—</div>';
+  }
+  if(QUAL){
+    const v=act.map(n=>calcAgente(n).chamados);const mx=Math.max(...v,1);
+    document.getElementById('hbB').innerHTML=act.map((n,i)=>
+      `<div class="hbar-row"><div class="name">${n}</div><div class="hbar-track"><div class="hbar-fill" style="width:${v[i]/mx*100}%">${v[i]}</div></div></div>`).join('')||'<div class="empty">—</div>';
+  }
+
+  renderCfg();
+}
+
+function renderCfg(){
+  if(!AGENTS.length){document.getElementById('cfg').style.display='none';return;}
+  document.getElementById('cfg').style.display='block';
+  const b=document.getElementById('cfgBody');b.innerHTML='';
+  AGENTS.forEach((a,i)=>{
+    const row=document.createElement('label');
+    row.innerHTML=`<input type="checkbox" ${a.show?'checked':''} data-i="${i}" class="cfgChk">
+      <span style="min-width:160px">${a.nome}</span>
+      <span style="color:var(--txt2)">exibir como:</span>
+      <input type="text" class="cfgAlias" data-i="${i}" value="${a.alias||''}" placeholder="(mesmo nome)">`;
+    b.appendChild(row);
+  });
+  b.querySelectorAll('.cfgChk').forEach(c=>c.onchange=e=>{AGENTS[+e.target.dataset.i].show=e.target.checked;render();});
+  b.querySelectorAll('.cfgAlias').forEach(c=>c.onchange=e=>{AGENTS[+e.target.dataset.i].alias=e.target.value.trim();render();});
+}
+
+/* ---------- upload handlers ---------- */
+function handle(file,slotHint){
+  const tagId=slotHint==='A'?'tagA':'tagB';
+  const tag=document.getElementById(tagId);tag.textContent='carregando…';tag.className='tag';
+  readFile(file,rows=>{
+    if(!rows.length){tag.textContent='✗ vazio';tag.className='tag err';return;}
+    const kind=classify(rows);
+    if(kind==='orpen')ORPEN=processOrpen(rows);else QUAL=processQual(rows);
+    tag.textContent=`✓ ${file.name} (${kind})`;tag.className='tag ok';
+    rebuildAgentList();render();
+  });
+}
+document.getElementById('fA').addEventListener('change',e=>{if(e.target.files[0])handle(e.target.files[0],'A');});
+document.getElementById('fB').addEventListener('change',e=>{if(e.target.files[0])handle(e.target.files[0],'B');});
+</script>
+</body>
+</html>
