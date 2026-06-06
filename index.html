@@ -261,7 +261,19 @@ function processOrpen(rows){
     return best||'Outros';
   }
 
-  return {rows,cAg,cFimExist,cNota,cData,cResp,finalizadorLinha,nomes:[...nomesSet]};
+  // iniciador = primeiro agente selecionado a aparecer na cadeia (menor posição).
+  // Usado só para o "SLA de atendimento" (tempo de 1ª resposta é de quem iniciou).
+  const cIniExist=R(['Agente Iniciador']);
+  function iniciadorLinha(r){
+    if(cIniExist&&r[cIniExist])return String(r[cIniExist]).trim();
+    const txt=r[cAg];let best=null,bestPos=Infinity;
+    activeAgentes().forEach(ag=>{
+      const p=localizar(chave(ag),txt);
+      if(p!==999&&p<bestPos){bestPos=p;best=ag;}
+    });
+    return best||'Outros';
+  }
+  return {rows,cAg,cFimExist,cNota,cData,cResp,finalizadorLinha,iniciadorLinha,nomes:[...nomesSet]};
 }
 
 /* ---------- processar QUALITOR ---------- */
@@ -282,10 +294,10 @@ function processQual(rows){
 
   function dentroSLA(r){
     if(cSlaExist&&r[cSlaExist]!=='')return norm(r[cSlaExist])==='no prazo';
-    const sit=norm(r[cSit]);
-    if(sit!=='encerrado')return false;
+    // Regra validada (354/354): encerramento preenchido E <= previsão de resposta.
+    // Não filtra por Situação (chamados "aguardando confirmação" ainda contam se responderam no prazo).
     const enc=parseDateBR(r[cEnc]),prev=parseDateBR(r[cPrev]);
-    return enc&&prev&&enc<=prev;
+    return !!(enc&&prev&&enc<=prev);
   }
   function diaLinha(r){
     if(cDiaExist&&r[cDiaExist])return dateKey(parseDateBR(r[cDiaExist]));
@@ -317,11 +329,15 @@ function calcAgente(nome){
            horasMin:0,chamados:0,noPrazo:0,datasQ:new Set()};
   if(ORPEN){
     ORPEN.rows.forEach(row=>{
-      if(ORPEN.finalizadorLinha(row)!==nome)return;
-      r.atend++;
-      const nt=num(row[ORPEN.cNota]);if(!isNaN(nt))r.notas.push(nt);
-      const rs=hmsToSec(row[ORPEN.cResp]);if(rs!=null)r.resp.push(rs);
-      const d=parseDateBR(row[ORPEN.cData]);if(d)r.datasO.add(dateKey(d));
+      if(ORPEN.finalizadorLinha(row)===nome){
+        r.atend++;
+        const nt=num(row[ORPEN.cNota]);if(!isNaN(nt))r.notas.push(nt);
+        const d=parseDateBR(row[ORPEN.cData]);if(d)r.datasO.add(dateKey(d));
+      }
+      // SLA de atendimento (1ª resposta) é atribuído ao INICIADOR, não ao finalizador
+      if(ORPEN.iniciadorLinha(row)===nome){
+        const rs=hmsToSec(row[ORPEN.cResp]);if(rs!=null)r.resp.push(rs);
+      }
     });
   }
   if(QUAL){
