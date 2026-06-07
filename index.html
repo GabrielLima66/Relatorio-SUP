@@ -102,6 +102,7 @@
       <label class="upbtn sec">📄 Relatório QUALITOR
         <input id="fB" type="file" accept=".csv,.xlsx,.xls" hidden></label>
       <span id="tagB" class="tag">nenhum arquivo</span>
+      <button id="btnExport" class="upbtn" style="display:none">⬇ Exportar Excel</button>
     </div>
   </header>
 
@@ -430,7 +431,7 @@ function render(){
   }
 
   renderCfg();
-}
+  document.getElementById('btnExport').style.display=(ORPEN||QUAL)?'inline-block':'none';
 
 function renderCfg(){
   if(!AGENTS.length){document.getElementById('cfg').style.display='none';return;}
@@ -448,7 +449,82 @@ function renderCfg(){
   b.querySelectorAll('.cfgAlias').forEach(c=>c.onchange=e=>{AGENTS[+e.target.dataset.i].alias=e.target.value.trim();render();});
 }
 
-/* ---------- upload handlers ---------- */
+/* ---------- exportar Excel ---------- */
+function exportExcel(){
+  if(!ORPEN&&!QUAL)return;
+  const wb=XLSX.utils.book_new();
+  const act=activeAgentes();
+
+  // ---- Aba 1: Dashboard (KPIs + tabela por agente) ----
+  const dash=[];
+  let totO='',sat='',per='';
+  if(ORPEN){
+    let t=0,notas=[],datas=new Set();
+    ORPEN.rows.forEach(r=>{if(ORPEN.finalizadorLinha(r)!=='Outros')t++;
+      const n=num(r[ORPEN.cNota]);if(!isNaN(n))notas.push(n);
+      const d=parseDateBR(r[ORPEN.cData]);if(d)datas.add(d.getTime());});
+    totO=t; sat=notas.length?+(notas.reduce((a,b)=>a+b)/notas.length).toFixed(2):'';
+    if(datas.size){const dt=new Date(Math.min(...datas));per=MESES[dt.getMonth()]+'/'+String(dt.getFullYear()).slice(2);}
+  }
+  let totQ='',slaQ='';
+  if(QUAL){totQ=QUAL.rows.length;let s=0;QUAL.rows.forEach(r=>{if(QUAL.dentroSLA(r))s++;});slaQ=s;}
+  dash.push(['Dashboard SUPORTE · ORPEN']);
+  dash.push(['Período',per]);
+  dash.push([]);
+  dash.push(['Indicador','Valor']);
+  dash.push(['Total Atendimentos ORPEN',totO]);
+  dash.push(['Satisfação Média',sat]);
+  dash.push(['Total Chamados Qualitor',totQ]);
+  dash.push(['Chamados Dentro do SLA',slaQ]);
+  dash.push([]);
+  dash.push(['Agente','Horas Trabalhadas','SLA de serviço','Atendimentos Orpen',
+             'Satisfação','SLA de atendimento','Média Atend/Dia','Média Chamados/Dia']);
+  act.forEach(nome=>{
+    const r=calcAgente(nome);
+    const satA=r.notas.length?+(r.notas.reduce((a,b)=>a+b)/r.notas.length).toFixed(2):'';
+    const slaAt=r.resp.length?secToHMS(r.resp.reduce((a,b)=>a+b)/r.resp.length):'';
+    dash.push([nome,
+      QUAL?minToHM(r.horasMin):'',
+      (QUAL&&r.chamados)?Math.round(r.noPrazo/r.chamados*100)/100:'',
+      ORPEN?r.atend:'',
+      satA,
+      slaAt,
+      r.datasO.size?Math.round(r.atend/r.datasO.size):'',
+      r.datasQ.size?Math.round(r.chamados/r.datasQ.size):'']);
+  });
+  const wsD=XLSX.utils.aoa_to_sheet(dash);
+  wsD['!cols']=[{wch:26},{wch:16},{wch:14},{wch:16},{wch:11},{wch:16},{wch:14},{wch:16}];
+  // formato % na coluna SLA de serviço (col C, a partir da linha da tabela de agentes)
+  const baseRow=11; // 1-based: linha do 1º agente
+  act.forEach((_,i)=>{const c=wsD['C'+(baseRow+i)];if(c&&typeof c.v==='number')c.z='0%';});
+  XLSX.utils.book_append_sheet(wb,wsD,'Dashboard');
+
+  // ---- Aba 2: Atendimentos Orpen (linha a linha + derivados) ----
+  if(ORPEN){
+    const det=ORPEN.rows.map(r=>{
+      const o={...r};
+      o['_Agente Iniciador (calc)']=ORPEN.iniciadorLinha(r);
+      o['_Agente Finalizador (calc)']=ORPEN.finalizadorLinha(r);
+      return o;
+    });
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(det),'Atendimentos Orpen');
+  }
+  // ---- Aba 3: Chamados Qualitor (linha a linha + derivados) ----
+  if(QUAL){
+    const det=QUAL.rows.map(r=>{
+      const o={...r};
+      o['_Dia (calc)']=QUAL.diaLinha(r)||'';
+      o['_Dentro do SLA (calc)']=QUAL.dentroSLA(r)?'No Prazo':'Fora';
+      return o;
+    });
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(det),'Chamados Qualitor');
+  }
+
+  const fname='dashboard_suporte'+(per?'_'+per.replace('/','-'):'')+'.xlsx';
+  XLSX.writeFile(wb,fname);
+}
+
+
 function handle(file,slotHint){
   const tagId=slotHint==='A'?'tagA':'tagB';
   const tag=document.getElementById(tagId);tag.textContent='carregando…';tag.className='tag';
@@ -462,6 +538,7 @@ function handle(file,slotHint){
 }
 document.getElementById('fA').addEventListener('change',e=>{if(e.target.files[0])handle(e.target.files[0],'A');});
 document.getElementById('fB').addEventListener('change',e=>{if(e.target.files[0])handle(e.target.files[0],'B');});
+document.getElementById('btnExport').addEventListener('click',exportExcel);
 </script>
 </body>
 </html>
