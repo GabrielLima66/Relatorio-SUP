@@ -6,95 +6,147 @@
 <title>Dashboard SUPORTE · ORPEN</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
-    --roxo:#6a1b6a; --roxo-esc:#4a124a; --roxo-claro:#8e3a8e;
-    --magenta:#9c1c7a; --bg:#f4eef4; --card:#fff; --linha:#d9c7d9;
-    --txt:#2b1430; --txt2:#6b5470; --ok:#2e7d32; --bad:#c62828;
+    --roxo:#6b1f6e; --roxo-esc:#3c0f40; --roxo-claro:#a052a3;
+    --magenta:#c01f7c; --accent:#dc9a35;
+    --bg:#f5eff6; --card:#fff; --linha:#e6dbe9;
+    --txt:#2a1530; --txt2:#6b5470; --ok:#2f8259; --bad:#c2483d;
   }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--txt);
-    font-family:"Segoe UI",system-ui,sans-serif;font-size:13px}
-  .wrap{max-width:1320px;margin:0 auto;padding:16px}
-  header.app{display:flex;align-items:center;gap:14px;margin-bottom:14px;flex-wrap:wrap}
-  .logo{font-size:30px;font-weight:800;letter-spacing:-1px;color:var(--roxo);
-    display:flex;align-items:center;gap:8px}
-  .logo .dot{width:26px;height:26px;border-radius:50% 50% 50% 0;
-    background:linear-gradient(135deg,var(--roxo),var(--roxo-claro));
-    transform:rotate(-45deg);display:inline-block}
-  .upbar{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  .upbtn{background:var(--roxo);color:#fff;border:none;border-radius:6px;
-    padding:8px 14px;font-size:12px;cursor:pointer;font-weight:600}
-  .upbtn:hover{background:var(--roxo-esc)}
-  .upbtn.sec{background:#fff;color:var(--roxo);border:1px solid var(--roxo)}
+  body{margin:0;
+    background:
+      radial-gradient(1100px 560px at 92% -12%, rgba(160,82,163,.13), transparent 60%),
+      radial-gradient(900px 480px at -10% 110%, rgba(220,154,53,.08), transparent 60%),
+      var(--bg);
+    color:var(--txt);font-family:'Plus Jakarta Sans',"Segoe UI",sans-serif;
+    font-size:13px;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1360px;margin:0 auto;padding:26px 20px 50px;animation:fadeUp .5s ease both}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+  header.app{display:flex;align-items:center;gap:16px;margin-bottom:22px;flex-wrap:wrap;
+    padding-bottom:18px;border-bottom:1px solid var(--linha)}
+  .logo{font-family:'Fraunces',Georgia,serif;font-size:26px;font-weight:600;
+    letter-spacing:-.3px;color:var(--roxo-esc);display:flex;align-items:center;gap:10px}
+  .logo .dot{width:22px;height:22px;border-radius:50% 50% 50% 6px;
+    background:linear-gradient(135deg,var(--magenta),var(--roxo));
+    transform:rotate(-40deg);display:inline-block;
+    box-shadow:0 4px 14px -3px rgba(107,31,110,.55)}
+  .logo .sub{font-family:'Plus Jakarta Sans',sans-serif;font-size:10px;font-weight:700;
+    letter-spacing:2.2px;text-transform:uppercase;color:var(--txt2);
+    border-left:1px solid var(--linha);padding-left:12px;margin-left:2px}
+  .upbar{margin-left:auto;display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+  .upbtn{background:var(--roxo);color:#fff;border:none;border-radius:8px;
+    padding:9px 16px;font-size:12px;cursor:pointer;font-weight:600;
+    transition:.16s ease;box-shadow:0 3px 10px -3px rgba(107,31,110,.55)}
+  .upbtn:hover{background:var(--roxo-esc);transform:translateY(-1px)}
+  .upbtn.sec{background:#fff;color:var(--roxo);border:1px solid var(--linha);box-shadow:none}
+  .upbtn.sec:hover{border-color:var(--roxo-claro);background:#fbf5fc;transform:translateY(-1px)}
   .tag{font-size:11px;color:var(--txt2)}
-  .tag.ok{color:var(--ok);font-weight:600}
-  .tag.err{color:var(--bad);font-weight:600}
+  .tag.ok{color:var(--ok);font-weight:700}
+  .tag.err{color:var(--bad);font-weight:700}
 
-  .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:14px}
-  .kpi{background:var(--card);border:1px solid var(--linha);border-radius:8px;
-    overflow:hidden;box-shadow:0 1px 3px rgba(74,18,74,.08)}
-  .kpi h4{margin:0;background:var(--roxo);color:#fff;font-size:11px;font-weight:600;
-    padding:6px 8px;text-align:center}
-  .kpi .val{font-size:30px;font-weight:800;text-align:center;padding:14px 4px}
+  .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:16px}
+  .kpi{background:var(--card);border:1px solid var(--linha);border-radius:13px;
+    overflow:hidden;box-shadow:0 3px 14px -6px rgba(74,18,74,.16);
+    transition:.2s ease;position:relative}
+  .kpi:hover{transform:translateY(-3px);box-shadow:0 14px 28px -10px rgba(74,18,74,.26)}
+  .kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;
+    background:linear-gradient(90deg,var(--magenta),var(--roxo-claro),var(--accent))}
+  .kpi h4{margin:0;color:var(--txt2);font-size:10px;font-weight:700;
+    text-transform:uppercase;letter-spacing:1.3px;padding:16px 16px 0}
+  .kpi .val{font-family:'Fraunces',Georgia,serif;font-size:33px;font-weight:600;
+    text-align:left;padding:6px 16px 18px;color:var(--roxo-esc);letter-spacing:-.5px}
 
-  .panel{background:var(--card);border:1px solid var(--linha);border-radius:8px;
-    padding:12px;margin-bottom:14px;box-shadow:0 1px 3px rgba(74,18,74,.06)}
-  .panel h3{margin:0 0 10px;font-size:12px;color:var(--roxo);font-weight:700;
-    text-transform:uppercase;letter-spacing:.5px}
+  .panel{background:var(--card);border:1px solid var(--linha);border-radius:13px;
+    padding:20px;margin-bottom:16px;box-shadow:0 3px 14px -6px rgba(74,18,74,.1)}
+  .panel h3{margin:0 0 16px;font-size:11px;color:var(--roxo);font-weight:700;
+    text-transform:uppercase;letter-spacing:1.3px;display:flex;align-items:center;gap:8px}
+  .panel h3::before{content:'';width:6px;height:6px;border-radius:2px;
+    background:var(--accent);transform:rotate(45deg)}
 
-  .chart{display:flex;align-items:flex-end;gap:6px;height:190px;padding-top:18px;overflow-x:auto}
-  .bar-col{display:flex;flex-direction:column;align-items:center;flex:1;min-width:26px}
-  .bar{width:60%;background:linear-gradient(180deg,var(--roxo-claro),var(--roxo));
-    border-radius:3px 3px 0 0;position:relative;transition:.4s}
-  .bar:hover{background:var(--magenta)}
-  .bar .lbl{position:absolute;top:-16px;left:50%;transform:translateX(-50%);
-    font-size:10px;font-weight:700}
-  .bar-col .x{font-size:9px;color:var(--txt2);margin-top:4px;white-space:nowrap;
-    transform:rotate(-45deg);transform-origin:top left;height:34px}
+  /* gráfico — barras com leitura horizontal das datas (sem rotação) */
+  .chart{display:flex;align-items:flex-end;gap:4px;height:212px;
+    padding:24px 6px 0;overflow-x:auto;overflow-y:hidden}
+  .bar-col{display:flex;flex-direction:column;align-items:center;flex:1;min-width:30px;
+    border-radius:7px 7px 0 0;padding-top:2px;transition:background .15s ease;
+    opacity:0;animation:colIn .5s ease forwards}
+  @keyframes colIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+  .bar-col:hover{background:rgba(192,31,124,.07)}
+  .bar-col.weekend{background:rgba(220,154,53,.055)}
+  .bar-col.weekend:hover{background:rgba(192,31,124,.09)}
+  .bar{width:56%;background:linear-gradient(180deg,var(--roxo-claro),var(--roxo));
+    border-radius:5px 5px 2px 2px;position:relative;min-height:4px;transition:filter .15s}
+  .bar:hover{filter:brightness(1.12) saturate(1.1)}
+  .bar .lbl{position:absolute;top:-19px;left:50%;transform:translateX(-50%);
+    font-size:10.5px;font-weight:700;color:var(--roxo-esc);white-space:nowrap;
+    font-variant-numeric:tabular-nums}
+  .bar-col:hover .lbl{color:var(--magenta)}
+  .bar-col .x{margin-top:9px;display:flex;flex-direction:column;align-items:center;
+    gap:2px;line-height:1}
+  .bar-col .x b{font-size:10.5px;font-weight:700;color:var(--txt);
+    font-variant-numeric:tabular-nums}
+  .bar-col.weekend .x b{color:var(--accent)}
+  .bar-col .x i{font-style:normal;font-size:8px;font-weight:800;letter-spacing:.7px;
+    text-transform:uppercase;color:var(--roxo-claro);margin-top:1px}
 
-  .agentes{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:14px}
-  .ag{border:1px solid var(--linha);border-radius:8px;overflow:hidden;background:var(--card)}
-  .ag .nome{background:var(--roxo);color:#fff;text-align:center;font-weight:700;padding:7px;font-size:13px}
+  .agentes{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-bottom:16px}
+  .ag{border:1px solid var(--linha);border-radius:12px;overflow:hidden;background:var(--card);
+    box-shadow:0 3px 12px -6px rgba(74,18,74,.1);transition:.2s ease}
+  .ag:hover{transform:translateY(-2px);box-shadow:0 12px 24px -10px rgba(74,18,74,.2)}
+  .ag .nome{background:linear-gradient(120deg,var(--roxo),var(--roxo-esc));color:#fff;
+    text-align:center;font-weight:700;padding:10px;font-size:13.5px;letter-spacing:.2px;
+    font-family:'Fraunces',Georgia,serif}
   .ag .grid{display:grid;grid-template-columns:1fr 1fr}
-  .ag .cell{padding:8px;border-top:1px solid var(--linha);border-right:1px solid var(--linha)}
-  .ag .cell:nth-child(2n){border-right:none}
-  .ag .cell .k{font-size:9px;color:#fff;background:var(--roxo-claro);
-    display:block;margin:-8px -8px 6px;padding:3px 8px;font-weight:600}
-  .ag .cell .v{font-size:18px;font-weight:800}
-  .ag .med{background:var(--roxo-esc);color:#fff;text-align:center;padding:6px}
-  .ag .med .k{font-size:10px;opacity:.85}
-  .ag .med .v{font-size:18px;font-weight:800}
+  .ag .cell{padding:10px}
+  .ag .cell .k{font-size:9px;color:var(--txt2);text-transform:uppercase;letter-spacing:.8px;
+    display:block;margin-bottom:5px;font-weight:700}
+  .ag .cell .v{font-family:'Fraunces',Georgia,serif;font-size:19px;font-weight:600;color:var(--roxo-esc)}
+  .ag .med{background:var(--bg);text-align:center;padding:9px;border-top:1px solid var(--linha)}
+  .ag .med .k{font-size:9px;color:var(--txt2);text-transform:uppercase;letter-spacing:.8px;font-weight:700}
+  .ag .med .v{font-family:'Fraunces',Georgia,serif;font-size:18px;font-weight:600;color:var(--roxo-esc)}
 
-  .hbars{display:flex;flex-direction:column;gap:14px;padding:6px 0}
-  .hbar-row{display:flex;align-items:center;gap:10px}
-  .hbar-row .name{width:130px;font-size:11px;text-align:right;color:var(--txt2);font-weight:600}
-  .hbar-track{flex:1;background:#efe3ef;border-radius:4px;height:26px;position:relative}
-  .hbar-fill{height:100%;background:linear-gradient(90deg,var(--roxo),var(--roxo-claro));
-    border-radius:4px;display:flex;align-items:center;justify-content:flex-end;
-    padding-right:8px;color:#fff;font-weight:700;font-size:12px;min-width:30px;transition:.5s}
+  .hbars{display:flex;flex-direction:column;gap:13px;padding:4px 0}
+  .hbar-row{display:flex;align-items:center;gap:12px}
+  .hbar-row .name{width:128px;font-size:11.5px;text-align:right;color:var(--txt2);font-weight:600;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hbar-track{flex:1;background:var(--bg);border-radius:6px;height:25px;position:relative;
+    border:1px solid var(--linha)}
+  .hbar-fill{height:100%;background:linear-gradient(90deg,var(--roxo),var(--magenta));
+    border-radius:5px;display:flex;align-items:center;justify-content:flex-end;
+    padding-right:10px;color:#fff;font-weight:700;font-size:11.5px;min-width:32px;
+    transition:width .6s cubic-bezier(.2,.8,.2,1);font-variant-numeric:tabular-nums}
 
-  .two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-  .empty{text-align:center;color:var(--txt2);padding:40px;font-style:italic}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .empty{text-align:center;color:var(--txt2);padding:46px;font-style:italic}
 
-  .derbox{background:#fbf6fb;border:1px dashed var(--linha);border-radius:8px;
-    padding:10px 12px;margin-bottom:14px;font-size:11px;color:var(--txt2)}
+  .derbox{background:var(--card);border:1px dashed var(--roxo-claro);border-radius:10px;
+    padding:11px 14px;margin-bottom:16px;font-size:11px;color:var(--txt2)}
   .derbox b{color:var(--roxo)}
-  .cfg{margin-bottom:14px}
+  .cfg{margin-bottom:16px}
   .cfg summary{cursor:pointer;font-size:12px;color:var(--roxo);font-weight:700;
-    padding:8px 12px;background:var(--card);border:1px solid var(--linha);border-radius:8px}
+    padding:10px 14px;background:var(--card);border:1px solid var(--linha);border-radius:10px;
+    list-style:none}
+  .cfg summary::-webkit-details-marker{display:none}
+  .cfg summary::before{content:'▸  ';color:var(--accent)}
+  .cfg[open] summary::before{content:'▾  '}
   .cfg .body{background:var(--card);border:1px solid var(--linha);border-top:none;
-    border-radius:0 0 8px 8px;padding:12px}
-  .cfg label{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px}
-  .cfg input[type=text]{border:1px solid var(--linha);border-radius:4px;padding:3px 6px;font-size:12px}
-  @media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.two{grid-template-columns:1fr}}
+    border-radius:0 0 10px 10px;padding:14px}
+  .cfg label{display:flex;align-items:center;gap:9px;padding:5px 0;font-size:12px}
+  .cfg input[type=text]{border:1px solid var(--linha);border-radius:5px;padding:4px 8px;font-size:12px}
+  .cfg input[type=text]:focus{outline:none;border-color:var(--roxo-claro)}
+  @media(max-width:980px){.kpis{grid-template-columns:repeat(2,1fr)}.two{grid-template-columns:1fr}}
+  @media(max-width:560px){.kpis{grid-template-columns:1fr 1fr}}
 </style>
 </head>
 <body>
 <div class="wrap">
 
   <header class="app">
-    <div class="logo"><span class="dot"></span>orpen</div>
+    <div class="logo"><span class="dot"></span>orpen<span class="sub">Dashboard Suporte</span></div>
     <div class="upbar">
       <label class="upbtn">📄 Relatório ORPEN (R97)
         <input id="fA" type="file" accept=".csv,.xlsx,.xls" hidden></label>
@@ -241,10 +293,12 @@ function processOrpen(rows){
   const cFimExist=R(['Agente Finalizador']);
   const cNota=R(['Nota']);
   const cData=R(['Data','Primeira mensagem do cliente']);
+  const cFimAtend=R(['Fim Atendimento']);
   const cResp=R(['Tempo de resposta (primeiro agente)','Tempo de resposta']);
 
   if(!cFimExist)derInfo.orpen.push('Agente Finalizador (via LOCALIZAR na coluna Agentes)');
   if(!R(['Data'])&&cData)derInfo.orpen.push('Data (extraída de "'+cData+'")');
+  if(!cFimAtend)derInfo.orpen.push('Gráfico "Atendimentos por dia" usa "'+cData+'" pois "Fim Atendimento" não foi encontrada');
 
   // detectar agentes candidatos a partir da coluna Agentes (todos os nomes que aparecem)
   const nomesSet=new Set();
@@ -274,7 +328,7 @@ function processOrpen(rows){
     });
     return best||'Outros';
   }
-  return {rows,cAg,cFimExist,cNota,cData,cResp,finalizadorLinha,iniciadorLinha,nomes:[...nomesSet]};
+  return {rows,cAg,cFimExist,cNota,cData,cFimAtend,cResp,finalizadorLinha,iniciadorLinha,nomes:[...nomesSet]};
 }
 
 /* ---------- processar QUALITOR ---------- */
@@ -381,16 +435,26 @@ function render(){
     document.getElementById('kSla').textContent=sla;
   }
 
-  // chart por dia
+  // chart por dia (agrupa pela data de FINALIZAÇÃO do atendimento, não pelo início)
   if(ORPEN){
-    const dia={};ORPEN.rows.forEach(r=>{const d=parseDateBR(r[ORPEN.cData]);if(!d)return;
+    const cChart=ORPEN.cFimAtend||ORPEN.cData;
+    const dia={};ORPEN.rows.forEach(r=>{const d=parseDateBR(r[cChart]);if(!d)return;
       const k=dateKey(d);dia[k]=(dia[k]||0)+1;});
     const keys=Object.keys(dia).sort((a,b)=>parseDateBR(a)-parseDateBR(b));
     const max=Math.max(...keys.map(k=>dia[k]),1);
+    const DIAS=['domingo','segunda','terça','quarta','quinta','sexta','sábado'];
     const c=document.getElementById('chart');c.innerHTML='';
-    keys.forEach(k=>{const v=dia[k];const col=document.createElement('div');col.className='bar-col';
-      col.innerHTML=`<div class="bar" style="height:${Math.max(6,v/max*140)}px"><span class="lbl">${v}</span></div><div class="x">${k.slice(0,5)}</div>`;
-      c.appendChild(col);});
+    keys.forEach((k,i)=>{
+      const v=dia[k],d=parseDateBR(k);
+      const weekend=d.getDay()===0||d.getDay()===6;
+      const col=document.createElement('div');
+      col.className='bar-col'+(weekend?' weekend':'');
+      col.style.animationDelay=(i*18)+'ms';
+      col.title=`${k} · ${DIAS[d.getDay()]} — ${v} atendimento${v===1?'':'s'}`;
+      col.innerHTML=`<div class="bar" style="height:${Math.max(6,v/max*150)}px"><span class="lbl">${v}</span></div>
+        <div class="x"><b>${String(d.getDate()).padStart(2,'0')}</b><i>${MESES[d.getMonth()]}</i></div>`;
+      c.appendChild(col);
+    });
   }
 
   // cards agentes
@@ -432,6 +496,7 @@ function render(){
 
   renderCfg();
   document.getElementById('btnExport').style.display=(ORPEN||QUAL)?'inline-block':'none';
+}
 
 function renderCfg(){
   if(!AGENTS.length){document.getElementById('cfg').style.display='none';return;}
