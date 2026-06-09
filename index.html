@@ -29,12 +29,8 @@
 
   header.app{display:flex;align-items:center;gap:16px;margin-bottom:22px;flex-wrap:wrap;
     padding-bottom:18px;border-bottom:1px solid var(--linha)}
-  .logo{font-family:'Fraunces',Georgia,serif;font-size:26px;font-weight:600;
-    letter-spacing:-.3px;color:var(--roxo-esc);display:flex;align-items:center;gap:10px}
-  .logo .dot{width:22px;height:22px;border-radius:50% 50% 50% 6px;
-    background:linear-gradient(135deg,var(--magenta),var(--roxo));
-    transform:rotate(-40deg);display:inline-block;
-    box-shadow:0 4px 14px -3px rgba(107,31,110,.55)}
+  .logo{display:flex;align-items:center;gap:12px}
+  .logo img{height:42px;width:auto;display:block}
   .logo .sub{font-family:'Plus Jakarta Sans',sans-serif;font-size:10px;font-weight:700;
     letter-spacing:2.2px;text-transform:uppercase;color:var(--txt2);
     border-left:1px solid var(--linha);padding-left:12px;margin-left:2px}
@@ -60,6 +56,8 @@
     text-transform:uppercase;letter-spacing:1.3px;padding:16px 16px 0}
   .kpi .val{font-family:'Fraunces',Georgia,serif;font-size:33px;font-weight:600;
     text-align:left;padding:6px 16px 18px;color:var(--roxo-esc);letter-spacing:-.5px}
+  .kpi .val .sub{display:block;font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;
+    font-weight:700;color:var(--magenta);letter-spacing:0;margin-top:2px}
 
   .panel{background:var(--card);border:1px solid var(--linha);border-radius:13px;
     padding:20px;margin-bottom:16px;box-shadow:0 3px 14px -6px rgba(74,18,74,.1)}
@@ -105,6 +103,8 @@
   .ag .cell .k{font-size:9px;color:var(--txt2);text-transform:uppercase;letter-spacing:.8px;
     display:block;margin-bottom:5px;font-weight:700}
   .ag .cell .v{font-family:'Fraunces',Georgia,serif;font-size:19px;font-weight:600;color:var(--roxo-esc)}
+  .ag .cell .v .vsub{display:block;font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;
+    font-weight:700;color:var(--magenta);margin-top:1px}
   .ag .med{background:var(--bg);text-align:center;padding:9px;border-top:1px solid var(--linha)}
   .ag .med .k{font-size:9px;color:var(--txt2);text-transform:uppercase;letter-spacing:.8px;font-weight:700}
   .ag .med .v{font-family:'Fraunces',Georgia,serif;font-size:18px;font-weight:600;color:var(--roxo-esc)}
@@ -146,13 +146,13 @@
 <div class="wrap">
 
   <header class="app">
-    <div class="logo"><span class="dot"></span>orpen<span class="sub">Dashboard Suporte</span></div>
+    <div class="logo"><img src="assets/logo.png" alt="orpen"><span class="sub">Dashboard Suporte</span></div>
     <div class="upbar">
       <label class="upbtn">📄 Relatório ORPEN (R97)
-        <input id="fA" type="file" accept=".csv,.xlsx,.xls" hidden></label>
+        <input id="fA" type="file" accept=".csv,.xlsx,.xls,.htm,.html" hidden></label>
       <span id="tagA" class="tag">nenhum arquivo</span>
       <label class="upbtn sec">📄 Relatório QUALITOR
-        <input id="fB" type="file" accept=".csv,.xlsx,.xls" hidden></label>
+        <input id="fB" type="file" accept=".csv,.xlsx,.xls,.htm,.html" hidden></label>
       <span id="tagB" class="tag">nenhum arquivo</span>
       <button id="btnExport" class="upbtn" style="display:none">⬇ Exportar Excel</button>
     </div>
@@ -192,6 +192,9 @@
 const MESES=["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
 let ORPEN=null, QUAL=null;            // dados processados
 let AGENTS=[];                         // [{nome, show, alias}]
+// agentes padrão — casados pelo PRIMEIRO NOME (igual ao SEARCH do Excel: "Renan","André","Gabriel").
+// unifica variações de grafia entre os sistemas (ORPEN "Gabriel Lima" x Qualitor "GABRIEL RIBEIRO" etc.)
+const FIXOS=['André Melo','Renan Hugentobler','Gabriel Lima'];
 const derInfo={orpen:[],qual:[]};
 
 /* ---------- util ---------- */
@@ -205,6 +208,22 @@ function hmsToSec(v){if(!v)return null;const p=String(v).trim().split(':');
 function secToHMS(s){s=Math.round(s);const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),x=s%60;
   return [h,m,x].map(z=>String(z).padStart(2,'0')).join(':');}
 function minToHM(min){const h=Math.floor(min/60),m=Math.round(min%60);return h+':'+String(m).padStart(2,'0');}
+// percentual com 1 casa e vírgula decimal (ex.: 0.968 -> "96,8%")
+function pct1(frac){return (frac*100).toFixed(1).replace('.',',')+'%';}
+// satisfação como percentual: nota 5 = 100%
+function satPct(media){return pct1(media/5);}
+// Período = MÊS PREDOMINANTE (moda) das datas de atendimento, não o mínimo —
+// assim um chamado isolado de outro mês (ex.: 1ª mensagem em mês anterior) não distorce o rótulo.
+// Usa a data de finalização (Fim Atendimento) quando existe, igual ao gráfico.
+function periodoOrpen(){
+  if(!ORPEN)return '';
+  const cPer=ORPEN.cFimAtend||ORPEN.cData;
+  const cnt={};
+  ORPEN.rows.forEach(r=>{const d=parseDateBR(r[cPer]);if(d){const k=d.getFullYear()*12+d.getMonth();cnt[k]=(cnt[k]||0)+1;}});
+  let bestK=null,bestN=-1;for(const k in cnt)if(cnt[k]>bestN){bestN=cnt[k];bestK=+k;}
+  if(bestK==null)return '';
+  return MESES[bestK%12]+'/'+String(Math.floor(bestK/12)).slice(2);
+}
 // aceita "dd/mm/aaaa" e "dd/mm/aaaa - HH:MM" e "dd/mm/aaaa HH:MM"
 function parseDateBR(v){
   if(v==null)return null;let s=String(v).trim();if(!s)return null;
@@ -228,22 +247,45 @@ function makeColResolver(headers){
   };
 }
 
-/* ---------- leitura de arquivo (csv ou xlsx) ---------- */
+/* ---------- leitura de arquivo (csv, xlsx/xls binário ou .xls/.htm "página web salva") ---------- */
+function bytesToLatin1(bytes){let s='';for(let i=0;i<bytes.length;i++)s+=String.fromCharCode(bytes[i]);return s;}
+function detectCharset(headTxt){const m=headTxt.match(/charset=["']?([\w-]+)/i);return m?m[1]:'windows-1252';}
+// alguns exports do Qualitor misturam acentos "crus" (resolvidos pelo charset acima) com
+// entidades HTML (&ccedil;, &atilde; etc.) dentro do texto das células — decodifica via DOM,
+// que cobre toda a tabela de entidades HTML5 sem risco de mexer na estrutura da tabela
+const _ta=document.createElement('textarea');
+function decodeEntities(s){
+  if(typeof s!=='string'||s.indexOf('&')===-1)return s;
+  _ta.innerHTML=s;return _ta.value;
+}
+// Qualitor (e o "Salvar página como" do navegador) costumam exportar uma tabela HTML com extensão .xls;
+// quando a página é salva como "Web completa", o arquivo principal é só um envelope/frameset sem dados —
+// os dados ficam num .htm separado dentro da pasta "..._arquivos".
 function readFile(file, cb){
   const ext=file.name.toLowerCase().split('.').pop();
-  if(ext==='xlsx'||ext==='xls'){
-    const r=new FileReader();
-    r.onload=e=>{
-      const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
-      const ws=wb.Sheets[wb.SheetNames[0]];
-      const rowsArr=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,defval:''});
-      cb(rowsArrToObjects(rowsArr));
-    };
-    r.readAsArrayBuffer(file);
-  }else{
+  if(ext==='csv'){
     Papa.parse(file,{header:false,skipEmptyLines:true,delimiter:';',encoding:'ISO-8859-1',
       complete:res=>cb(rowsArrToObjects(res.data))});
+    return;
   }
+  const r=new FileReader();
+  r.onload=e=>{
+    const buf=new Uint8Array(e.target.result);
+    const head=bytesToLatin1(buf.subarray(0,4096));
+    if(/excel workbook frameset/i.test(head)){cb([],'frameset');return;}
+    let wb;
+    if(/<html[\s>]/i.test(head)||/<table[\s>]/i.test(head)){
+      // tabela HTML: decodifica com o charset declarado (geralmente windows-1252) p/ não corromper acentos
+      wb=XLSX.read(new TextDecoder(detectCharset(head)).decode(buf),{type:'string'});
+    }else{
+      wb=XLSX.read(buf,{type:'array'});
+    }
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const rowsArr=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,defval:''})
+      .map(row=>row.map(decodeEntities));
+    cb(rowsArrToObjects(rowsArr));
+  };
+  r.readAsArrayBuffer(file);
 }
 // localiza a linha de cabeçalho real (que contém "Tipo de Atendimento" ou "Atendimento"+"Responsável")
 function rowsArrToObjects(arr){
@@ -279,11 +321,16 @@ function classify(rows){
 // posição (1-based) da 1ª ocorrência da chave no texto, ou 999
 function localizar(key,txt){
   if(txt==null)return 999;
-  const i=String(txt).indexOf(key);
+  // comparação tolerante a maiúsculas/acentos — o mesmo agente pode estar
+  // cadastrado com grafias diferentes em cada sistema (ex.: "GABRIEL RIBEIRO" no
+  // Qualitor x "Gabriel Lima" na ORPEN)
+  const i=norm(txt).indexOf(norm(key));
   return i>=0?i+1:999;
 }
 // primeira palavra do nome do agente (chave de busca, como no Excel: "Renan","André","Gabriel")
 function chave(nome){return String(nome).trim().split(/\s+/)[0];}
+// duas grafias representam o mesmo agente quando o PRIMEIRO NOME coincide (tolerante a maiúsc./acentos)
+function mesmaChave(a,b){const ka=norm(chave(a)),kb=norm(chave(b));return !!ka&&ka===kb;}
 
 /* ---------- processar ORPEN ---------- */
 function processOrpen(rows){
@@ -306,7 +353,7 @@ function processOrpen(rows){
 
   // finalizador por linha
   function finalizadorLinha(r){
-    if(cFimExist&&r[cFimExist])return String(r[cFimExist]).trim();
+    if(cFimExist&&r[cFimExist])return canonAtivo(r[cFimExist])||'Outros';
     const txt=r[cAg];
     let best=null,bestPos=-1;
     activeAgentes().forEach(ag=>{
@@ -320,7 +367,7 @@ function processOrpen(rows){
   // Usado só para o "SLA de atendimento" (tempo de 1ª resposta é de quem iniciou).
   const cIniExist=R(['Agente Iniciador']);
   function iniciadorLinha(r){
-    if(cIniExist&&r[cIniExist])return String(r[cIniExist]).trim();
+    if(cIniExist&&r[cIniExist])return canonAtivo(r[cIniExist])||'Outros';
     const txt=r[cAg];let best=null,bestPos=Infinity;
     activeAgentes().forEach(ag=>{
       const p=localizar(chave(ag),txt);
@@ -363,19 +410,20 @@ function processQual(rows){
 
 /* ---------- agentes ativos ---------- */
 function activeAgentes(){return AGENTS.filter(a=>a.show).map(a=>a.alias||a.nome);}
+// dado um nome em qualquer grafia, devolve o agente ATIVO de mesmo primeiro nome (ou null)
+function canonAtivo(raw){if(!raw)return null;for(const a of activeAgentes())if(mesmaChave(a,raw))return a;return null;}
 function rebuildAgentList(){
-  const set=new Map(); // nome -> obj
-  if(ORPEN)ORPEN.nomes.forEach(n=>{if(!set.has(n))set.set(n,{nome:n,show:false,alias:''});});
-  // marcar como show os que realmente finalizam algo
-  if(ORPEN){
-    const finSet=new Set();ORPEN.rows.forEach(r=>finSet.add(ORPEN.finalizadorLinha(r)));
-    finSet.forEach(n=>{if(n!=='Outros'){if(!set.has(n))set.set(n,{nome:n,show:true,alias:''});else set.get(n).show=true;}});
-  }
-  if(QUAL)QUAL.rows.forEach(r=>{const n=String(r[QUAL.cResp]||'').trim();
-    if(n){if(!set.has(n))set.set(n,{nome:n,show:true,alias:''});else set.get(n).show=true;}});
-  // preserva config anterior
-  const prev={};AGENTS.forEach(a=>prev[a.nome]=a);
-  AGENTS=[...set.values()].map(a=>prev[a.nome]?prev[a.nome]:a);
+  const prev={};AGENTS.forEach(a=>prev[a.nome]=a);   // preserva config (show/alias) anterior
+  const set=new Map();                               // nome -> {nome,show,alias}
+  const jaTem=n=>{for(const ex of set.keys())if(mesmaChave(ex,n))return true;return false;};
+  // 1) os 3 fixos sempre presentes e visíveis por padrão
+  FIXOS.forEach(n=>set.set(n,prev[n]||{nome:n,show:true,alias:''}));
+  // 2) demais nomes detectados entram OCULTOS (podem ser exibidos pela config),
+  //    a menos que o primeiro nome já seja um dos fixos
+  const add=raw=>{const n=String(raw||'').trim();if(!n||jaTem(n))return;set.set(n,prev[n]||{nome:n,show:false,alias:''});};
+  if(ORPEN)ORPEN.nomes.forEach(add);
+  if(QUAL)QUAL.rows.forEach(r=>add(r[QUAL.cResp]));
+  AGENTS=[...set.values()];
 }
 
 /* ---------- cálculos por agente ---------- */
@@ -397,7 +445,7 @@ function calcAgente(nome){
   }
   if(QUAL){
     QUAL.rows.forEach(row=>{
-      if(String(row[QUAL.cResp]||'').trim()!==nome)return;
+      if(!mesmaChave(row[QUAL.cResp]||'',nome))return;
       r.chamados++;
       const s=hmsToSec(row[QUAL.cHoras]);if(s!=null)r.horasMin+=s/60;
       if(QUAL.dentroSLA(row))r.noPrazo++;
@@ -419,20 +467,22 @@ function render(){
 
   // KPIs
   if(ORPEN){
-    let tot=0,notas=[],datas=new Set();
+    let tot=0,notas=[];
     ORPEN.rows.forEach(r=>{const f=ORPEN.finalizadorLinha(r);
       if(f!=='Outros')tot++;
-      const nt=num(r[ORPEN.cNota]);if(!isNaN(nt))notas.push(nt);
-      const d=parseDateBR(r[ORPEN.cData]);if(d)datas.add(d.getTime());});
+      const nt=num(r[ORPEN.cNota]);if(!isNaN(nt))notas.push(nt);});
     document.getElementById('kTotO').textContent=tot;
-    document.getElementById('kSat').textContent=notas.length?(notas.reduce((a,b)=>a+b)/notas.length).toFixed(2).replace('.',','):'—';
-    if(datas.size){const dt=new Date(Math.min(...datas));
-      document.getElementById('kPer').textContent=MESES[dt.getMonth()]+'/'+String(dt.getFullYear()).slice(2);}
+    if(notas.length){const media=notas.reduce((a,b)=>a+b)/notas.length;
+      document.getElementById('kSat').innerHTML=media.toFixed(2).replace('.',',')+'<span class="sub">'+satPct(media)+'</span>';}
+    else document.getElementById('kSat').textContent='—';
+    const per=periodoOrpen();
+    if(per)document.getElementById('kPer').textContent=per;
   }
   if(QUAL){
     document.getElementById('kTotQ').textContent=QUAL.rows.length;
     let sla=0;QUAL.rows.forEach(r=>{if(QUAL.dentroSLA(r))sla++;});
-    document.getElementById('kSla').textContent=sla;
+    document.getElementById('kSla').innerHTML=QUAL.rows.length
+      ? sla+'<span class="sub">'+pct1(sla/QUAL.rows.length)+'</span>' : sla;
   }
 
   // chart por dia (agrupa pela data de FINALIZAÇÃO do atendimento, não pelo início)
@@ -461,7 +511,8 @@ function render(){
   const box=document.getElementById('agentesBox');box.innerHTML='';
   activeAgentes().forEach(nome=>{
     const r=calcAgente(nome);
-    const sat=r.notas.length?(r.notas.reduce((a,b)=>a+b)/r.notas.length).toFixed(2).replace('.',','):'—';
+    const satMedia=r.notas.length?r.notas.reduce((a,b)=>a+b)/r.notas.length:null;
+    const sat=satMedia!=null?satMedia.toFixed(2).replace('.',',')+'<span class="vsub">'+satPct(satMedia)+'</span>':'—';
     const slaAt=r.resp.length?secToHMS(r.resp.reduce((a,b)=>a+b)/r.resp.length):'—';
     const medAt=r.datasO.size?Math.round(r.atend/r.datasO.size):'—';
     const horas=QUAL?minToHM(r.horasMin):'—';
@@ -524,12 +575,11 @@ function exportExcel(){
   const dash=[];
   let totO='',sat='',per='';
   if(ORPEN){
-    let t=0,notas=[],datas=new Set();
+    let t=0,notas=[];
     ORPEN.rows.forEach(r=>{if(ORPEN.finalizadorLinha(r)!=='Outros')t++;
-      const n=num(r[ORPEN.cNota]);if(!isNaN(n))notas.push(n);
-      const d=parseDateBR(r[ORPEN.cData]);if(d)datas.add(d.getTime());});
+      const n=num(r[ORPEN.cNota]);if(!isNaN(n))notas.push(n);});
     totO=t; sat=notas.length?+(notas.reduce((a,b)=>a+b)/notas.length).toFixed(2):'';
-    if(datas.size){const dt=new Date(Math.min(...datas));per=MESES[dt.getMonth()]+'/'+String(dt.getFullYear()).slice(2);}
+    per=periodoOrpen();
   }
   let totQ='',slaQ='';
   if(QUAL){totQ=QUAL.rows.length;let s=0;QUAL.rows.forEach(r=>{if(QUAL.dentroSLA(r))s++;});slaQ=s;}
@@ -593,7 +643,13 @@ function exportExcel(){
 function handle(file,slotHint){
   const tagId=slotHint==='A'?'tagA':'tagB';
   const tag=document.getElementById(tagId);tag.textContent='carregando…';tag.className='tag';
-  readFile(file,rows=>{
+  readFile(file,(rows,err)=>{
+    if(err==='frameset'){
+      tag.textContent='✗ selecione o sheet001.htm da pasta "..._arquivos"';
+      tag.title='Este arquivo é só o "envelope" da página salva pelo navegador (sem dados). '+
+        'Abra a pasta "'+file.name.replace(/\.[^.]+$/,'')+'_arquivos" ao lado dele e selecione o arquivo sheet001.htm — é nele que está a tabela de verdade.';
+      tag.className='tag err';return;
+    }
     if(!rows.length){tag.textContent='✗ vazio';tag.className='tag err';return;}
     const kind=classify(rows);
     if(kind==='orpen')ORPEN=processOrpen(rows);else QUAL=processQual(rows);
