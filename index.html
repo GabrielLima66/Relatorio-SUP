@@ -138,6 +138,11 @@
   .cfg label{display:flex;align-items:center;gap:9px;padding:5px 0;font-size:12px}
   .cfg input[type=text]{border:1px solid var(--linha);border-radius:5px;padding:4px 8px;font-size:12px}
   .cfg input[type=text]:focus{outline:none;border-color:var(--roxo-claro)}
+  /* config de agentes — variantes unificadas */
+  .cfgVars{font-size:10px;color:var(--txt2);margin-top:3px;line-height:1.5}
+  .cfgSrc{font-weight:700;color:var(--roxo);font-size:10px}
+  .cfgUnif{font-size:10px;background:#fef3db;color:#7a4a00;border-radius:4px;
+    padding:1px 7px;font-weight:600;margin-left:4px;vertical-align:middle}
   @media(max-width:980px){.kpis{grid-template-columns:repeat(2,1fr)}.two{grid-template-columns:1fr}}
   @media(max-width:560px){.kpis{grid-template-columns:1fr 1fr}}
 </style>
@@ -159,6 +164,7 @@
   </header>
 
   <div id="derbox" class="derbox" style="display:none"></div>
+  <div id="diagbox" class="derbox" style="display:none"></div>
   <details id="cfg" class="cfg" style="display:none">
     <summary>⚙ Configurar agentes exibidos</summary>
     <div class="body" id="cfgBody"></div>
@@ -329,8 +335,8 @@ function localizar(key,txt){
 }
 // primeira palavra do nome do agente (chave de busca, como no Excel: "Renan","André","Gabriel")
 function chave(nome){return String(nome).trim().split(/\s+/)[0];}
-// duas grafias representam o mesmo agente quando o PRIMEIRO NOME coincide (tolerante a maiúsc./acentos)
-function mesmaChave(a,b){const ka=norm(chave(a)),kb=norm(chave(b));return !!ka&&ka===kb;}
+// escapa strings para inserção segura em innerHTML
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
 /* ---------- processar ORPEN ---------- */
 function processOrpen(rows){
@@ -351,25 +357,26 @@ function processOrpen(rows){
   const nomesSet=new Set();
   rows.forEach(r=>{const a=r[cAg];if(a)String(a).split('>').forEach(n=>{n=n.trim();if(n)nomesSet.add(n);});});
 
-  // finalizador por linha
+  // finalizador = agente com maior posição na cadeia (aparece mais à direita = atendeu por último)
+  // usa TODOS os agentes registrados (não só os visíveis), para não depender do estado show/hide
   function finalizadorLinha(r){
-    if(cFimExist&&r[cFimExist])return canonAtivo(r[cFimExist])||'Outros';
+    if(cFimExist&&r[cFimExist])return canonAll(r[cFimExist])||String(r[cFimExist]).trim()||'Outros';
     const txt=r[cAg];
     let best=null,bestPos=-1;
-    activeAgentes().forEach(ag=>{
+    allAgentDisplayNames().forEach(ag=>{
       const p=localizar(chave(ag),txt);
       if(p!==999&&p>bestPos){bestPos=p;best=ag;}
     });
     return best||'Outros';
   }
 
-  // iniciador = primeiro agente selecionado a aparecer na cadeia (menor posição).
+  // iniciador = primeiro agente a aparecer na cadeia (menor posição).
   // Usado só para o "SLA de atendimento" (tempo de 1ª resposta é de quem iniciou).
   const cIniExist=R(['Agente Iniciador']);
   function iniciadorLinha(r){
-    if(cIniExist&&r[cIniExist])return canonAtivo(r[cIniExist])||'Outros';
+    if(cIniExist&&r[cIniExist])return canonAll(r[cIniExist])||String(r[cIniExist]).trim()||'Outros';
     const txt=r[cAg];let best=null,bestPos=Infinity;
-    activeAgentes().forEach(ag=>{
+    allAgentDisplayNames().forEach(ag=>{
       const p=localizar(chave(ag),txt);
       if(p!==999&&p<bestPos){bestPos=p;best=ag;}
     });
@@ -408,22 +415,81 @@ function processQual(rows){
   return {rows,cResp,cHoras,cSit,cEnc,cPrev,dentroSLA,diaLinha};
 }
 
-/* ---------- agentes ativos ---------- */
+/* ---------- agentes ---------- */
+// Nomes de exibição dos agentes VISÍVEIS (para os cards e gráficos de barra)
 function activeAgentes(){return AGENTS.filter(a=>a.show).map(a=>a.alias||a.nome);}
-// dado um nome em qualquer grafia, devolve o agente ATIVO de mesmo primeiro nome (ou null)
-function canonAtivo(raw){if(!raw)return null;for(const a of activeAgentes())if(mesmaChave(a,raw))return a;return null;}
+// Nomes de exibição de TODOS os agentes — usado para detecção sem depender de show/hide
+function allAgentDisplayNames(){return AGENTS.map(a=>a.alias||a.nome);}
+// Dado qualquer grafia bruta, devolve o nome de exibição do agente correspondente em TODOS os agentes
+// Compara pela chave normalizada (sem acentos, minúsculas, espaços colapsados)
+function canonAll(raw){
+  if(!raw)return null;
+  const k=norm(String(raw).trim());
+  for(const a of AGENTS){
+    if(norm(a.alias||a.nome)===k||norm(a.nome)===k)return a.alias||a.nome;
+    // verifica também as variantes brutas registradas de cada fonte
+    if((a.variantesOrpen||[]).some(v=>norm(v)===k))return a.alias||a.nome;
+    if((a.variantesQual||[]).some(v=>norm(v)===k))return a.alias||a.nome;
+  }
+  return null;
+}
+
 function rebuildAgentList(){
-  const prev={};AGENTS.forEach(a=>prev[a.nome]=a);   // preserva config (show/alias) anterior
-  const set=new Map();                               // nome -> {nome,show,alias}
-  const jaTem=n=>{for(const ex of set.keys())if(mesmaChave(ex,n))return true;return false;};
-  // 1) os 3 fixos sempre presentes e visíveis por padrão
-  FIXOS.forEach(n=>set.set(n,prev[n]||{nome:n,show:true,alias:''}));
-  // 2) demais nomes detectados entram OCULTOS (podem ser exibidos pela config),
-  //    a menos que o primeiro nome já seja um dos fixos
-  const add=raw=>{const n=String(raw||'').trim();if(!n||jaTem(n))return;set.set(n,prev[n]||{nome:n,show:false,alias:''});};
-  if(ORPEN)ORPEN.nomes.forEach(add);
-  if(QUAL)QUAL.rows.forEach(r=>add(r[QUAL.cResp]));
-  AGENTS=[...set.values()];
+  // preserva configuração anterior (show / alias) indexada pela chave normalizada
+  const prev={};AGENTS.forEach(a=>prev[a.key||norm(a.nome)]=a);
+
+  // ── 1. Coletar variantes brutas de cada fonte de forma independente ──────────
+  const mapOrpen=new Map(); // normKey → Set<grafia bruta>
+  const mapQual=new Map();
+
+  if(ORPEN)ORPEN.nomes.forEach(n=>{
+    const k=norm(n);if(!k)return;
+    if(!mapOrpen.has(k))mapOrpen.set(k,new Set());
+    mapOrpen.get(k).add(n);
+  });
+  if(QUAL)QUAL.rows.forEach(r=>{
+    const n=String(r[QUAL.cResp]||'').trim();
+    const k=norm(n);if(!k)return;
+    if(!mapQual.has(k))mapQual.set(k,new Set());
+    mapQual.get(k).add(n);
+  });
+
+  // ── 2. União de todas as chaves (dados reais + FIXOS como presença garantida) ─
+  const allKeys=new Set([...mapOrpen.keys(),...mapQual.keys()]);
+  FIXOS.forEach(n=>{const k=norm(n);if(k)allKeys.add(k);});
+
+  // ── 3. Construir lista unificada ──────────────────────────────────────────────
+  const list=[];
+  allKeys.forEach(k=>{
+    const varO=[...(mapOrpen.get(k)||[])];
+    const varQ=[...(mapQual.get(k)||[])];
+    // Nome de exibição: Orpen normalmente tem acentuação correta; fallback Qualitor, depois FIXOS
+    let nome;
+    if(varO.length)nome=varO[0];
+    else if(varQ.length)nome=varQ[0];
+    else nome=FIXOS.find(f=>norm(f)===k)||k;
+
+    const old=prev[k];
+    const isFIXO=FIXOS.some(f=>norm(f)===k);
+    const temDados=varO.length>0||varQ.length>0;
+    list.push({
+      key:k,
+      nome,
+      // se configuração anterior existir → preserva; senão, visível por padrão se tem dados ou é FIXO
+      show: old!==undefined ? old.show : (temDados||isFIXO),
+      alias: old?.alias||'',
+      variantesOrpen:varO,
+      variantesQual:varQ
+    });
+  });
+
+  // Ordenar: ambas fontes > só Orpen > só Qualitor > nenhuma; depois nome
+  list.sort((a,b)=>{
+    const sc=e=>(e.variantesOrpen.length?2:0)+(e.variantesQual.length?1:0);
+    const d=sc(b)-sc(a);if(d)return d;
+    return (a.alias||a.nome).localeCompare(b.alias||b.nome,'pt');
+  });
+  AGENTS=list;
 }
 
 /* ---------- cálculos por agente ---------- */
@@ -444,8 +510,9 @@ function calcAgente(nome){
     });
   }
   if(QUAL){
+    const nomeKey=norm(nome);
     QUAL.rows.forEach(row=>{
-      if(!mesmaChave(row[QUAL.cResp]||'',nome))return;
+      if(norm(row[QUAL.cResp]||'')!==nomeKey)return;
       r.chamados++;
       const s=hmsToSec(row[QUAL.cHoras]);if(s!=null)r.horasMin+=s/60;
       if(QUAL.dentroSLA(row))r.noPrazo++;
@@ -545,6 +612,7 @@ function render(){
       `<div class="hbar-row"><div class="name">${n}</div><div class="hbar-track"><div class="hbar-fill" style="width:${v[i]/mx*100}%">${v[i]}</div></div></div>`).join('')||'<div class="empty">—</div>';
   }
 
+  renderDiag();
   renderCfg();
   document.getElementById('btnExport').style.display=(ORPEN||QUAL)?'inline-block':'none';
 }
@@ -554,15 +622,48 @@ function renderCfg(){
   document.getElementById('cfg').style.display='block';
   const b=document.getElementById('cfgBody');b.innerHTML='';
   AGENTS.forEach((a,i)=>{
-    const row=document.createElement('label');
-    row.innerHTML=`<input type="checkbox" ${a.show?'checked':''} data-i="${i}" class="cfgChk">
-      <span style="min-width:160px">${a.nome}</span>
-      <span style="color:var(--txt2)">exibir como:</span>
-      <input type="text" class="cfgAlias" data-i="${i}" value="${a.alias||''}" placeholder="(mesmo nome)">`;
-    b.appendChild(row);
+    const wrap=document.createElement('div');
+    const varO=a.variantesOrpen||[],varQ=a.variantesQual||[];
+    const varParts=[];
+    if(varO.length)varParts.push('<span class="cfgSrc">Orpen:</span> '+esc(varO.join(', ')));
+    if(varQ.length)varParts.push('<span class="cfgSrc">Qualitor:</span> '+esc(varQ.join(', ')));
+    const casado=varO.length>0&&varQ.length>0;
+    wrap.innerHTML=`<label style="display:flex;align-items:flex-start;gap:9px;padding:6px 2px;font-size:12px;cursor:pointer">
+      <input type="checkbox" ${a.show?'checked':''} data-i="${i}" class="cfgChk" style="margin-top:3px;flex-shrink:0">
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="min-width:150px;font-weight:600">${esc(a.alias||a.nome)}</span>
+          <span style="color:var(--txt2);font-size:11px">exibir como:</span>
+          <input type="text" class="cfgAlias" data-i="${i}" value="${esc(a.alias||'')}" placeholder="(mesmo nome)">
+          ${casado?'<span class="cfgUnif">casado entre fontes</span>':''}
+        </div>
+        ${varParts.length?`<div class="cfgVars">${varParts.join(' &nbsp;·&nbsp; ')}</div>`:''}
+      </div>
+    </label>`;
+    b.appendChild(wrap);
   });
   b.querySelectorAll('.cfgChk').forEach(c=>c.onchange=e=>{AGENTS[+e.target.dataset.i].show=e.target.checked;render();});
   b.querySelectorAll('.cfgAlias').forEach(c=>c.onchange=e=>{AGENTS[+e.target.dataset.i].alias=e.target.value.trim();render();});
+}
+
+function renderDiag(){
+  const db=document.getElementById('diagbox');
+  if(!ORPEN&&!QUAL){db.style.display='none';return;}
+  const nOrpen=AGENTS.filter(a=>a.variantesOrpen&&a.variantesOrpen.length>0).length;
+  const nQual=AGENTS.filter(a=>a.variantesQual&&a.variantesQual.length>0).length;
+  const nCasados=AGENTS.filter(a=>a.variantesOrpen&&a.variantesOrpen.length>0&&a.variantesQual&&a.variantesQual.length>0).length;
+  const nUnif=AGENTS.filter(a=>(a.variantesOrpen&&a.variantesOrpen.length>0)||(a.variantesQual&&a.variantesQual.length>0)).length;
+  let semAgOrpen=0,semAgQual=0;
+  if(ORPEN)ORPEN.rows.forEach(r=>{if(ORPEN.finalizadorLinha(r)==='Outros')semAgOrpen++;});
+  if(QUAL)QUAL.rows.forEach(r=>{if(!String(r[QUAL.cResp]||'').trim())semAgQual++;});
+  const parts=[];
+  if(ORPEN)parts.push(`<b>Orpen:</b> ${nOrpen} agente${nOrpen!==1?'s':''} detectado${nOrpen!==1?'s':''}`);
+  if(QUAL)parts.push(`<b>Qualitor:</b> ${nQual} agente${nQual!==1?'s':''} detectado${nQual!==1?'s':''}`);
+  if(ORPEN&&QUAL)parts.push(`<b>${nUnif}</b> único${nUnif!==1?'s':''} · <b>${nCasados}</b> casado${nCasados!==1?'s':''} entre fontes`);
+  if(semAgOrpen>0)parts.push(`<span style="color:var(--bad)">${semAgOrpen} atendimento${semAgOrpen!==1?'s':''} sem agente (Outros)</span>`);
+  if(semAgQual>0)parts.push(`<span style="color:var(--bad)">${semAgQual} chamado${semAgQual!==1?'s':''} sem responsável</span>`);
+  db.style.display='block';
+  db.innerHTML='<b>Diagnóstico de agentes —</b> '+parts.join(' &nbsp;·&nbsp; ');
 }
 
 /* ---------- exportar Excel ---------- */
