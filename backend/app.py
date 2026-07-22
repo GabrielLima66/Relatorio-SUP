@@ -8,6 +8,7 @@ from flask import Flask, jsonify, request, send_from_directory  # noqa: E402
 
 import db  # noqa: E402
 import orpen_client  # noqa: E402
+import qualitor_client  # noqa: E402
 
 ROOT_DIR = Path(__file__).parent.parent
 
@@ -63,6 +64,28 @@ def orpen_data():
 @app.get("/api/orpen/log")
 def orpen_log():
     return jsonify(db.list_sync_log())
+
+
+@app.post("/api/qualitor/sync")
+def qualitor_sync():
+    start_offset = db.get_qualitor_offset()
+    try:
+        rows, next_offset = qualitor_client.fetch_new_tickets(start_offset)
+        db.upsert_qualitor_chamados(rows)
+        db.set_qualitor_offset(next_offset)
+        db.log_sync("qualitor", str(start_offset), str(next_offset), len(rows), "ok")
+        return jsonify({"status": "ok", "row_count": len(rows)})
+    except Exception as exc:
+        db.log_sync("qualitor", str(start_offset), str(start_offset), None, "error", str(exc))
+        return jsonify({"status": "error", "error": str(exc)}), 502
+
+
+@app.get("/api/qualitor/data")
+def qualitor_data():
+    start_iso = _br_to_iso(request.args.get("start"))
+    end_iso = _br_to_iso(request.args.get("end"))
+    rows = db.query_qualitor_chamados(start_iso, end_iso)
+    return jsonify(rows)
 
 
 if __name__ == "__main__":

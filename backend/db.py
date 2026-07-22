@@ -26,6 +26,19 @@ CREATE TABLE IF NOT EXISTS sync_log (
     status TEXT NOT NULL,
     error TEXT
 );
+
+CREATE TABLE IF NOT EXISTS qualitor_chamados (
+    id TEXT PRIMARY KEY,
+    abertura_dia TEXT,
+    data_json TEXT NOT NULL,
+    synced_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_qualitor_abertura ON qualitor_chamados(abertura_dia);
+
+CREATE TABLE IF NOT EXISTS qualitor_sync_state (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    next_offset INTEGER NOT NULL DEFAULT 0
+);
 """
 
 
@@ -107,6 +120,76 @@ def query_atendimentos(start_iso=None, end_iso=None):
         sql += " ORDER BY fim_atendimento_dia"
         cur = conn.execute(sql, params)
         return [json.loads(r["data_json"]) for r in cur.fetchall()]
+    finally:
+        conn.close()
+
+
+def upsert_qualitor_chamados(rows):
+    """rows: list of dict já no formato de colunas do export manual do Qualitor
+    (ver qualitor_client._map_ticket). Dedup por Protocolo (id do ticket)."""
+    conn = get_connection()
+    now = datetime.now(timezone.utc).isoformat()
+    try:
+        for row in rows:
+            ticket_id = str(row.get("Protocolo") or "").strip()
+            if not ticket_id:
+                continue
+            conn.execute(
+                """INSERT INTO qualitor_chamados (id, abertura_dia, data_json, synced_at)
+                   VALUES (?, ?, ?, ?)
+                   ON CONFLICT(id) DO UPDATE SET
+                     abertura_dia=excluded.abertura_dia,
+                     data_json=excluded.data_json,
+                     synced_at=excluded.synced_at""",
+                (
+                    ticket_id,
+                    _br_date_to_iso(row.get("Abertura")),
+                    json.dumps(row, ensure_ascii=False),
+                    now,
+                ),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def query_qualitor_chamados(start_iso=None, end_iso=None):
+    """Returns list of dict filtrado por Abertura (data de abertura do chamado)."""
+    conn = get_connection()
+    try:
+        sql = "SELECT data_json FROM qualitor_chamados WHERE 1=1"
+        params = []
+        if start_iso:
+            sql += " AND abertura_dia >= ?"
+            params.append(start_iso)
+        if end_iso:
+            sql += " AND abertura_dia <= ?"
+            params.append(end_iso)
+        sql += " ORDER BY abertura_dia"
+        cur = conn.execute(sql, params)
+        return [json.loads(r["data_json"]) for r in cur.fetchall()]
+    finally:
+        conn.close()
+
+
+def get_qualitor_offset():
+    conn = get_connection()
+    try:
+        row = conn.execute("SELECT next_offset FROM qualitor_sync_state WHERE id = 1").fetchone()
+        return row["next_offset"] if row else 0
+    finally:
+        conn.close()
+
+
+def set_qualitor_offset(offset):
+    conn = get_connection()
+    try:
+        conn.execute(
+            """INSERT INTO qualitor_sync_state (id, next_offset) VALUES (1, ?)
+               ON CONFLICT(id) DO UPDATE SET next_offset=excluded.next_offset""",
+            (offset,),
+        )
+        conn.commit()
     finally:
         conn.close()
 

@@ -1,25 +1,27 @@
 # Dashboard SUPORTE · ORPEN
 
 Dashboard que reconstrói a visão de suporte da ORPEN a partir de dois relatórios:
-**R97 (atendimentos Orpen)** — hoje já vem direto da **API da Orpen** — e
-**Qualitor (chamados)** — ainda por upload manual.
+**R97 (atendimentos Orpen)** e **Qualitor (chamados)** — ambos hoje já vêm direto das
+respectivas **APIs**, com upload manual como alternativa/fallback.
 
 ## Como usar
 
 1. Instale as dependências do backend (uma vez): `pip install -r backend/requirements.txt`.
-2. Configure `backend/.env` (veja `backend/.env.example`) com a URL/credenciais da API Orpen.
+2. Configure `backend/.env` (veja `backend/.env.example`) com as URLs/credenciais das APIs
+   Orpen e Qualitor.
 3. Suba o servidor: `python backend/app.py`.
 4. Abra **http://127.0.0.1:5000/** no navegador (não abra mais o `index.html` por
    duplo-clique — ele agora depende do backend para a busca via API).
 5. Escolha a data inicial/final e clique **🔄 Buscar ORPEN (API)** — o backend consulta
    a API, guarda os atendimentos num banco SQLite local (`backend/dashboard.db`,
    deduplicados por Protocolo) e o dashboard carrega o período pedido.
-6. Clique em **Relatório QUALITOR** e suba o export (`.csv` ou `.xlsx`) — ainda manual.
+6. Clique em **🔄 Buscar QUALITOR (API)** — o backend sincroniza os chamados novos
+   (ver detalhes na seção abaixo) e o dashboard carrega o mesmo período escolhido acima.
 7. Clique em **⚙ Mapear agentes** para criar entidades e vincular nomes.
 8. O dashboard se monta com os dados dos agentes mapeados.
 
-O upload manual do R97 (**Relatório ORPEN (R97)**) continua disponível como alternativa/
-fallback caso a API esteja fora do ar.
+Os uploads manuais (**Relatório ORPEN (R97)** / **Relatório QUALITOR**) continuam
+disponíveis como alternativa/fallback caso alguma das APIs esteja fora do ar.
 
 ## Backend (armazenamento + API)
 
@@ -27,13 +29,42 @@ fallback caso a API esteja fora do ar.
   - `POST /api/orpen/sync {start, end}` (dd/mm/aaaa) — busca na API da Orpen e grava/atualiza
     no SQLite.
   - `GET /api/orpen/data?start=...&end=...` — devolve os atendimentos já armazenados no período.
-  - `GET /api/orpen/log` — histórico das sincronizações (data, período, linhas, sucesso/erro).
-- `backend/db.py` — schema SQLite (`orpen_atendimentos`, `sync_log`).
+  - `POST /api/qualitor/sync {}` — sincroniza os chamados novos do Qualitor (ver abaixo).
+  - `GET /api/qualitor/data?start=...&end=...` — devolve os chamados já armazenados no
+    período, filtrando pela data de **Abertura**.
+  - `GET /api/orpen/log` — histórico das sincronizações de ambas as fontes (coluna `source`
+    distingue `orpen`/`qualitor`): data, período, linhas, sucesso/erro.
+- `backend/db.py` — schema SQLite (`orpen_atendimentos`, `qualitor_chamados`,
+  `qualitor_sync_state`, `sync_log`).
 - `backend/orpen_client.py` — chamada HTTP à API da Orpen (`report_json`, reportId 97).
+- `backend/qualitor_client.py` — chamada HTTP à API do Qualitor (login/refresh de token,
+  paginação de `/ticket/list`, mapeamento dos campos do ticket para as colunas do export
+  manual).
 - Credenciais ficam em `backend/.env` (fora do git — veja `.gitignore`).
 
-Sincronizar o mesmo período de novo não duplica linhas — cada atendimento é identificado
-pelo **Protocolo** e é sobrescrito com os dados mais recentes.
+Sincronizar o mesmo período de novo não duplica linhas — cada atendimento/chamado é
+identificado pelo **Protocolo** (Orpen) ou **id do ticket** (Qualitor) e é sobrescrito com
+os dados mais recentes.
+
+### Particularidades da API do Qualitor
+
+- **Login por usuário de serviço**: `QUALITOR_USER`/`QUALITOR_PASSWORD` no `.env` são de uma
+  conta dedicada ao sistema (não credenciais pessoais). O `access_token` fica só em memória
+  do processo; o `refresh_token` é o único persistido em disco, em
+  `backend/qualitor_session.json` (fora do git). Se o refresh falhar, o client faz login de
+  novo automaticamente.
+- **Sem filtro de data/status na API** — `/ticket/list` não aceita filtrar por período nem
+  por situação. A sincronização é **incremental por offset**: a lista vem em ordem
+  ascendente de id (mais antigos primeiro), então guardamos o offset já sincronizado
+  (`qualitor_sync_state`) e cada sync só pagina a partir dali até encontrar uma página mais
+  curta que o limite (fim da lista).
+  - **Limitação conhecida**: como não há resync de chamados antigos, um chamado que mudar de
+    situação/for encerrado bem depois de já ter sido sincronizado não é atualizado
+    automaticamente. Se isso importar, será preciso um resync periódico da janela recente
+    (não implementado ainda).
+- Certificado do host (`172.31.1.81`) não bate com o domínio (`*.rcxit.com.br`) por ser
+  acesso via IP interno/VPN — o client desabilita a verificação de TLS especificamente para
+  essas chamadas.
 
 ### Sincronização diária automática
 
@@ -112,7 +143,9 @@ que quiser preservar a configuração entre sessões.
 
 ## Próximos passos (ideias)
 
-- API do Qualitor (ainda não integrada — chamados continuam por upload manual).
-- Agendar a sincronização da Orpen automaticamente (frequência a definir — diária?).
+- Resync periódico da janela recente do Qualitor, para capturar chamados antigos que
+  mudaram de situação/foram encerrados depois da sincronização inicial.
+- Agendar a sincronização da Orpen e do Qualitor automaticamente (frequência a definir —
+  diária?).
 - Filtros clicáveis por data e por agente.
 - Exportar o dashboard renderizado em PDF.

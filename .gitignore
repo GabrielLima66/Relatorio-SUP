@@ -9,3 +9,4 @@ backend/.env
 backend/dashboard.db
 backend/__pycache__/
 backend/venv/
+backend/qualitor_session.json

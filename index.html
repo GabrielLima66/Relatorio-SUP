@@ -194,6 +194,7 @@
       <label class="upbtn sec">📄 Relatório ORPEN (R97)
         <input id="fA" type="file" accept=".csv,.xlsx,.xls,.htm,.html" hidden></label>
       <span id="tagA" class="tag">nenhum arquivo</span>
+      <button id="btnQualitorApi" class="upbtn">🔄 Buscar QUALITOR (API)</button>
       <label class="upbtn sec">📄 Relatório QUALITOR
         <input id="fB" type="file" accept=".csv,.xlsx,.xls,.htm,.html" hidden></label>
       <span id="tagB" class="tag">nenhum arquivo</span>
@@ -956,6 +957,40 @@ async function fetchOrpenApi(){
   }
 }
 document.getElementById('btnOrpenApi').addEventListener('click',fetchOrpenApi);
+
+/* ---------- busca QUALITOR via API (backend local) ---------- */
+// diferente da Orpen, o /api/qualitor/sync não recebe período — ele sempre
+// avança a partir do cursor (offset) da última sincronização, buscando os
+// chamados novos até o fim da lista. O período (start/end) só filtra
+// localmente o que já está armazenado, ao consultar /api/qualitor/data.
+async function fetchQualitorApi(){
+  const startEl=document.getElementById('orpenStart'), endEl=document.getElementById('orpenEnd');
+  const tag=document.getElementById('tagB');
+  if(!startEl.value||!endEl.value){alert('Selecione data inicial e final.');return;}
+  const start=isoToBR(startEl.value), end=isoToBR(endEl.value);
+  const btn=document.getElementById('btnQualitorApi');
+  btn.disabled=true;tag.textContent='sincronizando…';tag.className='tag';
+  try{
+    const syncRes=await fetch('/api/qualitor/sync',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+    const syncBody=await syncRes.json();
+    if(!syncRes.ok)throw new Error(syncBody.error||'falha na sincronização');
+
+    const dataRes=await fetch(`/api/qualitor/data?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`);
+    if(!dataRes.ok)throw new Error('falha ao ler dados armazenados');
+    const rows=await dataRes.json();
+    if(!rows.length){tag.textContent='✗ nenhum chamado no período';tag.className='tag err';return;}
+
+    QUAL=processQual(rows);
+    tag.textContent=`✓ API ${start}–${end} (${syncBody.row_count} novos/atualizados, ${rows.length} no período)`;
+    tag.className='tag ok';
+    rebuildSourceLists();render();
+  }catch(err){
+    tag.textContent='✗ '+err.message;tag.className='tag err';
+  }finally{
+    btn.disabled=false;
+  }
+}
+document.getElementById('btnQualitorApi').addEventListener('click',fetchQualitorApi);
 
 document.getElementById('btnSyncOntem').addEventListener('click',()=>{
   const ontem=new Date();ontem.setDate(ontem.getDate()-1);
