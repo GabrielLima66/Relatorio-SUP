@@ -123,6 +123,14 @@
   .two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
   .empty{text-align:center;color:var(--txt2);padding:46px;font-style:italic}
 
+  .tabs{display:flex;gap:6px;margin-bottom:18px;border-bottom:1px solid var(--linha)}
+  .tab-btn{background:none;border:none;padding:8px 18px;font-size:12px;font-weight:700;
+    color:var(--txt2);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-1px;
+    text-transform:uppercase;letter-spacing:.8px;transition:.15s ease;font-family:inherit}
+  .tab-btn:hover{color:var(--roxo)}
+  .tab-btn.active{color:var(--roxo-esc);border-bottom-color:var(--magenta)}
+  .tabpanel{animation:fadeUp .35s ease both}
+
   .derbox{background:var(--card);border:1px dashed var(--roxo-claro);border-radius:10px;
     padding:11px 14px;margin-bottom:16px;font-size:11px;color:var(--txt2)}
   .derbox b{color:var(--roxo)}
@@ -138,11 +146,37 @@
   .cfg label{display:flex;align-items:center;gap:9px;padding:5px 0;font-size:12px}
   .cfg input[type=text]{border:1px solid var(--linha);border-radius:5px;padding:4px 8px;font-size:12px}
   .cfg input[type=text]:focus{outline:none;border-color:var(--roxo-claro)}
-  /* config de agentes — variantes unificadas */
-  .cfgVars{font-size:10px;color:var(--txt2);margin-top:3px;line-height:1.5}
+  /* painel de mapeamento de agentes */
   .cfgSrc{font-weight:700;color:var(--roxo);font-size:10px}
-  .cfgUnif{font-size:10px;background:#fef3db;color:#7a4a00;border-radius:4px;
-    padding:1px 7px;font-weight:600;margin-left:4px;vertical-align:middle}
+  .map-new{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+  .map-name-inp{border:1px solid var(--linha);border-radius:8px;padding:8px 12px;font-size:13px;
+    font-family:inherit;color:var(--txt);flex:1;min-width:160px;max-width:260px}
+  .map-name-inp:focus{outline:none;border-color:var(--roxo-claro)}
+  .map-entity{background:var(--bg);border:1px solid var(--linha);border-radius:10px;
+    padding:12px 14px;margin-bottom:8px}
+  .map-entity-hdr{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+  .map-entity-name{font-weight:700;font-size:14px;font-family:'Fraunces',Georgia,serif;
+    color:var(--roxo-esc);flex:1}
+  .map-row{display:flex;gap:14px;flex-wrap:wrap}
+  .map-src-col{flex:1;min-width:180px}
+  .map-src-lbl{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1.1px;
+    color:var(--txt2);margin-bottom:5px}
+  .map-chips{display:flex;flex-wrap:wrap;gap:4px;min-height:22px}
+  .chip{display:inline-flex;align-items:center;gap:4px;border-radius:20px;padding:3px 10px;
+    font-size:11px;font-weight:600;line-height:1.4}
+  .chip.orpen{background:var(--roxo);color:#fff}
+  .chip.qual{background:var(--magenta);color:#fff}
+  .chip-rm{background:none;border:none;color:inherit;cursor:pointer;font-size:14px;
+    line-height:1;padding:0;opacity:.7;font-weight:400}
+  .chip-rm:hover{opacity:1}
+  .map-sel{width:100%;border:1px solid var(--linha);border-radius:6px;padding:5px 8px;
+    font-size:12px;background:var(--card);color:var(--txt);margin-top:6px;cursor:pointer}
+  .map-sel:focus{outline:none;border-color:var(--roxo-claro)}
+  .map-unlinked{margin-top:10px;padding:10px 12px;background:var(--card);
+    border:1px dashed var(--linha);border-radius:8px;font-size:11px;line-height:1.8}
+  .map-unlinked-lbl{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1.1px;
+    color:var(--txt2);margin-bottom:5px}
+  .map-hint{text-align:center;padding:28px 16px;color:var(--txt2);font-style:italic;font-size:12px}
   @media(max-width:980px){.kpis{grid-template-columns:repeat(2,1fr)}.two{grid-template-columns:1fr}}
   @media(max-width:560px){.kpis{grid-template-columns:1fr 1fr}}
 </style>
@@ -153,7 +187,11 @@
   <header class="app">
     <div class="logo"><img src="assets/logo.png" alt="orpen"><span class="sub">Dashboard Suporte</span></div>
     <div class="upbar">
-      <label class="upbtn">📄 Relatório ORPEN (R97)
+      <button id="btnSyncOntem" class="upbtn" title="Sincroniza o dia anterior — a mesma janela que a sincronização automática das 2h usa">↻ Sincronizar ontem</button>
+      <input id="orpenStart" type="date" class="upbtn sec" style="cursor:auto;padding:8px 10px">
+      <input id="orpenEnd" type="date" class="upbtn sec" style="cursor:auto;padding:8px 10px">
+      <button id="btnOrpenApi" class="upbtn">🔄 Buscar ORPEN (API)</button>
+      <label class="upbtn sec">📄 Relatório ORPEN (R97)
         <input id="fA" type="file" accept=".csv,.xlsx,.xls,.htm,.html" hidden></label>
       <span id="tagA" class="tag">nenhum arquivo</span>
       <label class="upbtn sec">📄 Relatório QUALITOR
@@ -166,30 +204,50 @@
   <div id="derbox" class="derbox" style="display:none"></div>
   <div id="diagbox" class="derbox" style="display:none"></div>
   <details id="cfg" class="cfg" style="display:none">
-    <summary>⚙ Configurar agentes exibidos</summary>
+    <summary>⚙ Mapear agentes</summary>
     <div class="body" id="cfgBody"></div>
   </details>
 
   <div class="kpis">
-    <div class="kpi"><h4>Total Atendimentos ORPEN</h4><div class="val" id="kTotO">—</div></div>
-    <div class="kpi"><h4>Satisfação Média</h4><div class="val" id="kSat">—</div></div>
-    <div class="kpi"><h4>Total Chamados Qualitor</h4><div class="val" id="kTotQ">—</div></div>
-    <div class="kpi"><h4>Chamados Dentro do SLA</h4><div class="val" id="kSla">—</div></div>
-    <div class="kpi"><h4>Período</h4><div class="val" id="kPer" style="font-size:22px">—</div></div>
+    <div class="kpi"><h4>Total Atendimentos ORPEN</h4><div class="val" data-kpi="totO">—</div></div>
+    <div class="kpi"><h4>Satisfação Média</h4><div class="val" data-kpi="sat">—</div></div>
+    <div class="kpi"><h4>Total Chamados Qualitor</h4><div class="val" data-kpi="totQ">—</div></div>
+    <div class="kpi"><h4>Chamados Dentro do SLA</h4><div class="val" data-kpi="sla">—</div></div>
+    <div class="kpi"><h4>Período</h4><div class="val" data-kpi="per" style="font-size:22px">—</div></div>
   </div>
 
   <div class="panel">
-    <h3>Atendimentos por dia</h3>
-    <div id="chart" class="chart"><div class="empty">Suba o relatório ORPEN para ver o gráfico.</div></div>
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="geral">Geral</button>
+      <button class="tab-btn" data-tab="orpen">ORPEN</button>
+      <button class="tab-btn" data-tab="qualitor">QUALITOR</button>
+    </div>
+
+    <div class="tabpanel" data-tabpanel="geral">
+      <h3>Atendimentos por dia</h3>
+      <div class="chart chart-orpen"><div class="empty">Suba o relatório ORPEN para ver o gráfico.</div></div>
+      <h3 style="margin-top:22px">Chamados por dia (Qualitor)</h3>
+      <div class="chart chart-qual"><div class="empty">Suba o relatório QUALITOR para ver o gráfico.</div></div>
+    </div>
+
+    <div class="tabpanel" data-tabpanel="orpen" style="display:none">
+      <h3>Atendimentos por dia</h3>
+      <div class="chart chart-orpen"><div class="empty">Suba o relatório ORPEN para ver o gráfico.</div></div>
+    </div>
+
+    <div class="tabpanel" data-tabpanel="qualitor" style="display:none">
+      <h3>Chamados por dia (Qualitor)</h3>
+      <div class="chart chart-qual"><div class="empty">Suba o relatório QUALITOR para ver o gráfico.</div></div>
+    </div>
   </div>
 
   <div id="agentesBox" class="agentes"></div>
 
   <div class="two">
-    <div class="panel"><h3>Atendimentos por Agente Finalizador</h3>
-      <div id="hbA" class="hbars"><div class="empty">—</div></div></div>
+    <div class="panel"><h3>Atendimentos por Agente</h3>
+      <div class="hbars hb-orpen"><div class="empty">—</div></div></div>
     <div class="panel"><h3>Chamados por Responsável (Qualitor)</h3>
-      <div id="hbB" class="hbars"><div class="empty">—</div></div></div>
+      <div class="hbars hb-qual"><div class="empty">—</div></div></div>
   </div>
 </div>
 
@@ -197,10 +255,10 @@
 "use strict";
 const MESES=["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
 let ORPEN=null, QUAL=null;            // dados processados
-let AGENTS=[];                         // [{nome, show, alias}]
-// agentes padrão — casados pelo PRIMEIRO NOME (igual ao SEARCH do Excel: "Renan","André","Gabriel").
-// unifica variações de grafia entre os sistemas (ORPEN "Gabriel Lima" x Qualitor "GABRIEL RIBEIRO" etc.)
-const FIXOS=['André Melo','Renan Hugentobler','Gabriel Lima'];
+let ENTITIES=[];                       // [{id,nome,orpenLinks:[],qualLinks:[]}]
+let ORPEN_SOURCES=[];                  // nomes-fonte distintos do Orpen (coluna "Agentes")
+let QUAL_SOURCES=[];                   // nomes-fonte distintos do Qualitor (coluna "Responsável")
+let nextEid=1;
 const derInfo={orpen:[],qual:[]};
 
 /* ---------- util ---------- */
@@ -333,8 +391,6 @@ function localizar(key,txt){
   const i=norm(txt).indexOf(norm(key));
   return i>=0?i+1:999;
 }
-// primeira palavra do nome do agente (chave de busca, como no Excel: "Renan","André","Gabriel")
-function chave(nome){return String(nome).trim().split(/\s+/)[0];}
 // escapa strings para inserção segura em innerHTML
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
@@ -357,32 +413,52 @@ function processOrpen(rows){
   const nomesSet=new Set();
   rows.forEach(r=>{const a=r[cAg];if(a)String(a).split('>').forEach(n=>{n=n.trim();if(n)nomesSet.add(n);});});
 
-  // finalizador = agente com maior posição na cadeia (aparece mais à direita = atendeu por último)
-  // usa TODOS os agentes registrados (não só os visíveis), para não depender do estado show/hide
+  // finalizador = entidade cujo nome-fonte Orpen tem maior posição na cadeia (atendeu por último)
+  // usa os nomes-fonte vinculados de TODAS as entidades — independente de visibilidade
   function finalizadorLinha(r){
-    if(cFimExist&&r[cFimExist])return canonAll(r[cFimExist])||String(r[cFimExist]).trim()||'Outros';
-    const txt=r[cAg];
-    let best=null,bestPos=-1;
-    allAgentDisplayNames().forEach(ag=>{
-      const p=localizar(chave(ag),txt);
-      if(p!==999&&p>bestPos){bestPos=p;best=ag;}
-    });
+    if(cFimExist&&r[cFimExist]){
+      const k=norm(r[cFimExist]);
+      for(const e of ENTITIES)if(e.orpenLinks.some(s=>norm(s)===k))return e.nome;
+      return String(r[cFimExist]).trim()||'Outros';
+    }
+    const txt=r[cAg];let best=null,bestPos=-1;
+    ENTITIES.forEach(entity=>entity.orpenLinks.forEach(src=>{
+      const p=localizar(src,txt);
+      if(p!==999&&p>bestPos){bestPos=p;best=entity.nome;}
+    }));
     return best||'Outros';
   }
 
-  // iniciador = primeiro agente a aparecer na cadeia (menor posição).
-  // Usado só para o "SLA de atendimento" (tempo de 1ª resposta é de quem iniciou).
+  // iniciador = entidade cujo nome-fonte Orpen tem menor posição na cadeia (atendeu primeiro)
   const cIniExist=R(['Agente Iniciador']);
   function iniciadorLinha(r){
-    if(cIniExist&&r[cIniExist])return canonAll(r[cIniExist])||String(r[cIniExist]).trim()||'Outros';
+    if(cIniExist&&r[cIniExist]){
+      const k=norm(r[cIniExist]);
+      for(const e of ENTITIES)if(e.orpenLinks.some(s=>norm(s)===k))return e.nome;
+      return String(r[cIniExist]).trim()||'Outros';
+    }
     const txt=r[cAg];let best=null,bestPos=Infinity;
-    allAgentDisplayNames().forEach(ag=>{
-      const p=localizar(chave(ag),txt);
-      if(p!==999&&p<bestPos){bestPos=p;best=ag;}
-    });
+    ENTITIES.forEach(entity=>entity.orpenLinks.forEach(src=>{
+      const p=localizar(src,txt);
+      if(p!==999&&p<bestPos){bestPos=p;best=entity.nome;}
+    }));
     return best||'Outros';
   }
-  return {rows,cAg,cFimExist,cNota,cData,cFimAtend,cResp,finalizadorLinha,iniciadorLinha,nomes:[...nomesSet]};
+
+  // participação = entidade aparece em QUALQUER posição da cadeia (iniciou, transferiu ou
+  // finalizou) — é o critério equivalente ao filtro "por agente" da tela de relatórios da
+  // Orpen (valida 758/752 · 97% de correspondência com export manual filtrado por agente)
+  function participaLinha(r, entityNome){
+    const entity=ENTITIES.find(e=>e.nome===entityNome);
+    if(!entity)return false;
+    const txt=r[cAg];
+    return entity.orpenLinks.some(src=>localizar(src,txt)!==999);
+  }
+  function algumaEntidadeParticipa(r){
+    return ENTITIES.some(e=>participaLinha(r,e.nome));
+  }
+  return {rows,cAg,cFimExist,cNota,cData,cFimAtend,cResp,finalizadorLinha,iniciadorLinha,
+          participaLinha,algumaEntidadeParticipa,nomes:[...nomesSet]};
 }
 
 /* ---------- processar QUALITOR ---------- */
@@ -412,107 +488,63 @@ function processQual(rows){
     if(cDiaExist&&r[cDiaExist])return dateKey(parseDateBR(r[cDiaExist]));
     return dateKey(parseDateBR(r[cAbert]));
   }
-  return {rows,cResp,cHoras,cSit,cEnc,cPrev,dentroSLA,diaLinha};
-}
-
-/* ---------- agentes ---------- */
-// Nomes de exibição dos agentes VISÍVEIS (para os cards e gráficos de barra)
-function activeAgentes(){return AGENTS.filter(a=>a.show).map(a=>a.alias||a.nome);}
-// Nomes de exibição de TODOS os agentes — usado para detecção sem depender de show/hide
-function allAgentDisplayNames(){return AGENTS.map(a=>a.alias||a.nome);}
-// Dado qualquer grafia bruta, devolve o nome de exibição do agente correspondente em TODOS os agentes
-// Compara pela chave normalizada (sem acentos, minúsculas, espaços colapsados)
-function canonAll(raw){
-  if(!raw)return null;
-  const k=norm(String(raw).trim());
-  for(const a of AGENTS){
-    if(norm(a.alias||a.nome)===k||norm(a.nome)===k)return a.alias||a.nome;
-    // verifica também as variantes brutas registradas de cada fonte
-    if((a.variantesOrpen||[]).some(v=>norm(v)===k))return a.alias||a.nome;
-    if((a.variantesQual||[]).some(v=>norm(v)===k))return a.alias||a.nome;
+  function algumaEntidadeParticipa(r){
+    const resp=norm(r[cResp]||'');
+    return ENTITIES.some(e=>e.qualLinks.some(s=>norm(s)===resp));
   }
-  return null;
+  return {rows,cResp,cHoras,cSit,cEnc,cPrev,dentroSLA,diaLinha,algumaEntidadeParticipa};
 }
 
-function rebuildAgentList(){
-  // preserva configuração anterior (show / alias) indexada pela chave normalizada
-  const prev={};AGENTS.forEach(a=>prev[a.key||norm(a.nome)]=a);
-
-  // ── 1. Coletar variantes brutas de cada fonte de forma independente ──────────
-  const mapOrpen=new Map(); // normKey → Set<grafia bruta>
-  const mapQual=new Map();
-
-  if(ORPEN)ORPEN.nomes.forEach(n=>{
-    const k=norm(n);if(!k)return;
-    if(!mapOrpen.has(k))mapOrpen.set(k,new Set());
-    mapOrpen.get(k).add(n);
+/* ---------- fontes de agente ---------- */
+function rebuildSourceLists(){
+  // Coleta nomes-fonte distintos do Orpen (da cadeia "Agentes")
+  if(ORPEN){
+    const seen=new Set();ORPEN_SOURCES=[];
+    ORPEN.nomes.forEach(n=>{const k=norm(n);if(k&&!seen.has(k)){seen.add(k);ORPEN_SOURCES.push(n);}});
+    ORPEN_SOURCES.sort((a,b)=>a.localeCompare(b,'pt'));
+  }
+  // Coleta nomes-fonte distintos do Qualitor (coluna Responsável)
+  if(QUAL){
+    const seen=new Set();QUAL_SOURCES=[];
+    QUAL.rows.forEach(r=>{const n=String(r[QUAL.cResp]||'').trim();const k=norm(n);
+      if(k&&!seen.has(k)){seen.add(k);QUAL_SOURCES.push(n);}});
+    QUAL_SOURCES.sort((a,b)=>a.localeCompare(b,'pt'));
+  }
+  // Remove vínculos de entidades cujo nome-fonte não existe nos dados atuais
+  // (ex.: novo mês carregado com agentes diferentes)
+  const orpNorm=new Set(ORPEN_SOURCES.map(norm));
+  const quaNorm=new Set(QUAL_SOURCES.map(norm));
+  ENTITIES.forEach(e=>{
+    e.orpenLinks=e.orpenLinks.filter(s=>orpNorm.has(norm(s)));
+    e.qualLinks=e.qualLinks.filter(s=>quaNorm.has(norm(s)));
   });
-  if(QUAL)QUAL.rows.forEach(r=>{
-    const n=String(r[QUAL.cResp]||'').trim();
-    const k=norm(n);if(!k)return;
-    if(!mapQual.has(k))mapQual.set(k,new Set());
-    mapQual.get(k).add(n);
-  });
-
-  // ── 2. União de todas as chaves (dados reais + FIXOS como presença garantida) ─
-  const allKeys=new Set([...mapOrpen.keys(),...mapQual.keys()]);
-  FIXOS.forEach(n=>{const k=norm(n);if(k)allKeys.add(k);});
-
-  // ── 3. Construir lista unificada ──────────────────────────────────────────────
-  const list=[];
-  allKeys.forEach(k=>{
-    const varO=[...(mapOrpen.get(k)||[])];
-    const varQ=[...(mapQual.get(k)||[])];
-    // Nome de exibição: Orpen normalmente tem acentuação correta; fallback Qualitor, depois FIXOS
-    let nome;
-    if(varO.length)nome=varO[0];
-    else if(varQ.length)nome=varQ[0];
-    else nome=FIXOS.find(f=>norm(f)===k)||k;
-
-    const old=prev[k];
-    const isFIXO=FIXOS.some(f=>norm(f)===k);
-    const temDados=varO.length>0||varQ.length>0;
-    list.push({
-      key:k,
-      nome,
-      // se configuração anterior existir → preserva; senão, visível por padrão se tem dados ou é FIXO
-      show: old!==undefined ? old.show : (temDados||isFIXO),
-      alias: old?.alias||'',
-      variantesOrpen:varO,
-      variantesQual:varQ
-    });
-  });
-
-  // Ordenar: ambas fontes > só Orpen > só Qualitor > nenhuma; depois nome
-  list.sort((a,b)=>{
-    const sc=e=>(e.variantesOrpen.length?2:0)+(e.variantesQual.length?1:0);
-    const d=sc(b)-sc(a);if(d)return d;
-    return (a.alias||a.nome).localeCompare(b.alias||b.nome,'pt');
-  });
-  AGENTS=list;
 }
 
-/* ---------- cálculos por agente ---------- */
-function calcAgente(nome){
+/* ---------- cálculos por entidade ---------- */
+function calcEntity(entity){
   const r={atend:0,notas:[],resp:[],datasO:new Set(),
            horasMin:0,chamados:0,noPrazo:0,datasQ:new Set()};
   if(ORPEN){
     ORPEN.rows.forEach(row=>{
-      if(ORPEN.finalizadorLinha(row)===nome){
+      // Atendimentos = entidade participou em qualquer posição da cadeia (não só finalizador) —
+      // é o que bate com o filtro "por agente" do relatório manual da Orpen
+      if(ORPEN.participaLinha(row,entity.nome)){
         r.atend++;
-        const nt=num(row[ORPEN.cNota]);if(!isNaN(nt))r.notas.push(nt);
         const d=parseDateBR(row[ORPEN.cData]);if(d)r.datasO.add(dateKey(d));
       }
-      // SLA de atendimento (1ª resposta) é atribuído ao INICIADOR, não ao finalizador
-      if(ORPEN.iniciadorLinha(row)===nome){
+      // Satisfação segue vinculada a quem finalizou (é quem recebe a nota do cliente)
+      if(ORPEN.finalizadorLinha(row)===entity.nome){
+        const nt=num(row[ORPEN.cNota]);if(!isNaN(nt))r.notas.push(nt);
+      }
+      if(ORPEN.iniciadorLinha(row)===entity.nome){
         const rs=hmsToSec(row[ORPEN.cResp]);if(rs!=null)r.resp.push(rs);
       }
     });
   }
   if(QUAL){
-    const nomeKey=norm(nome);
+    const qset=new Set(entity.qualLinks.map(norm));
     QUAL.rows.forEach(row=>{
-      if(norm(row[QUAL.cResp]||'')!==nomeKey)return;
+      if(!qset.has(norm(row[QUAL.cResp]||'')))return;
       r.chamados++;
       const s=hmsToSec(row[QUAL.cHoras]);if(s!=null)r.horasMin+=s/60;
       if(QUAL.dentroSLA(row))r.noPrazo++;
@@ -520,6 +552,27 @@ function calcAgente(nome){
     });
   }
   return r;
+}
+
+/* ---------- gráfico de barras por dia (reutilizado por ORPEN e QUALITOR) ---------- */
+function paintDayChart(containers,dataMap,unitWord){
+  const keys=Object.keys(dataMap).sort((a,b)=>parseDateBR(a)-parseDateBR(b));
+  const max=Math.max(...keys.map(k=>dataMap[k]),1);
+  const DIAS=['domingo','segunda','terça','quarta','quinta','sexta','sábado'];
+  containers.forEach(c=>{
+    c.innerHTML='';
+    keys.forEach((k,i)=>{
+      const v=dataMap[k],d=parseDateBR(k);
+      const weekend=d.getDay()===0||d.getDay()===6;
+      const col=document.createElement('div');
+      col.className='bar-col'+(weekend?' weekend':'');
+      col.style.animationDelay=(i*18)+'ms';
+      col.title=`${k} · ${DIAS[d.getDay()]} — ${v} ${unitWord}${v===1?'':'s'}`;
+      col.innerHTML=`<div class="bar" style="height:${Math.max(6,v/max*150)}px"><span class="lbl">${v}</span></div>
+        <div class="x"><b>${String(d.getDate()).padStart(2,'0')}</b><i>${MESES[d.getMonth()]}</i></div>`;
+      c.appendChild(col);
+    });
+  });
 }
 
 /* ---------- RENDER ---------- */
@@ -535,49 +588,49 @@ function render(){
   // KPIs
   if(ORPEN){
     let tot=0,notas=[];
-    ORPEN.rows.forEach(r=>{const f=ORPEN.finalizadorLinha(r);
-      if(f!=='Outros')tot++;
+    ORPEN.rows.forEach(r=>{
+      if(ORPEN.algumaEntidadeParticipa(r))tot++;
       const nt=num(r[ORPEN.cNota]);if(!isNaN(nt))notas.push(nt);});
-    document.getElementById('kTotO').textContent=tot;
+    document.querySelectorAll('[data-kpi=totO]').forEach(el=>el.textContent=tot);
     if(notas.length){const media=notas.reduce((a,b)=>a+b)/notas.length;
-      document.getElementById('kSat').innerHTML=media.toFixed(2).replace('.',',')+'<span class="sub">'+satPct(media)+'</span>';}
-    else document.getElementById('kSat').textContent='—';
+      document.querySelectorAll('[data-kpi=sat]').forEach(el=>
+        el.innerHTML=media.toFixed(2).replace('.',',')+'<span class="sub">'+satPct(media)+'</span>');}
+    else document.querySelectorAll('[data-kpi=sat]').forEach(el=>el.textContent='—');
     const per=periodoOrpen();
-    if(per)document.getElementById('kPer').textContent=per;
+    if(per)document.querySelectorAll('[data-kpi=per]').forEach(el=>el.textContent=per);
   }
   if(QUAL){
-    document.getElementById('kTotQ').textContent=QUAL.rows.length;
+    document.querySelectorAll('[data-kpi=totQ]').forEach(el=>el.textContent=QUAL.rows.length);
     let sla=0;QUAL.rows.forEach(r=>{if(QUAL.dentroSLA(r))sla++;});
-    document.getElementById('kSla').innerHTML=QUAL.rows.length
-      ? sla+'<span class="sub">'+pct1(sla/QUAL.rows.length)+'</span>' : sla;
+    document.querySelectorAll('[data-kpi=sla]').forEach(el=>el.innerHTML=QUAL.rows.length
+      ? sla+'<span class="sub">'+pct1(sla/QUAL.rows.length)+'</span>' : sla);
   }
 
-  // chart por dia (agrupa pela data de FINALIZAÇÃO do atendimento, não pelo início)
+  // chart por dia (agrupa pela data de FINALIZAÇÃO do atendimento, não pelo início) —
+  // só conta atendimentos de agentes mapeados (mesmo critério do KPI "Total Atendimentos ORPEN")
   if(ORPEN){
     const cChart=ORPEN.cFimAtend||ORPEN.cData;
-    const dia={};ORPEN.rows.forEach(r=>{const d=parseDateBR(r[cChart]);if(!d)return;
+    const dia={};ORPEN.rows.forEach(r=>{
+      if(!ORPEN.algumaEntidadeParticipa(r))return;
+      const d=parseDateBR(r[cChart]);if(!d)return;
       const k=dateKey(d);dia[k]=(dia[k]||0)+1;});
-    const keys=Object.keys(dia).sort((a,b)=>parseDateBR(a)-parseDateBR(b));
-    const max=Math.max(...keys.map(k=>dia[k]),1);
-    const DIAS=['domingo','segunda','terça','quarta','quinta','sexta','sábado'];
-    const c=document.getElementById('chart');c.innerHTML='';
-    keys.forEach((k,i)=>{
-      const v=dia[k],d=parseDateBR(k);
-      const weekend=d.getDay()===0||d.getDay()===6;
-      const col=document.createElement('div');
-      col.className='bar-col'+(weekend?' weekend':'');
-      col.style.animationDelay=(i*18)+'ms';
-      col.title=`${k} · ${DIAS[d.getDay()]} — ${v} atendimento${v===1?'':'s'}`;
-      col.innerHTML=`<div class="bar" style="height:${Math.max(6,v/max*150)}px"><span class="lbl">${v}</span></div>
-        <div class="x"><b>${String(d.getDate()).padStart(2,'0')}</b><i>${MESES[d.getMonth()]}</i></div>`;
-      c.appendChild(col);
-    });
+    paintDayChart(document.querySelectorAll('.chart-orpen'),dia,'atendimento');
+  }
+
+  // chart por dia (Qualitor) — agrupa pelo "Dia" (ou Abertura) de cada chamado,
+  // só contando chamados de responsáveis vinculados a algum agente mapeado
+  if(QUAL){
+    const diaQ={};QUAL.rows.forEach(r=>{
+      if(!QUAL.algumaEntidadeParticipa(r))return;
+      const k=QUAL.diaLinha(r);if(!k)return;
+      diaQ[k]=(diaQ[k]||0)+1;});
+    paintDayChart(document.querySelectorAll('.chart-qual'),diaQ,'chamado');
   }
 
   // cards agentes
   const box=document.getElementById('agentesBox');box.innerHTML='';
-  activeAgentes().forEach(nome=>{
-    const r=calcAgente(nome);
+  ENTITIES.forEach(entity=>{
+    const r=calcEntity(entity);
     const satMedia=r.notas.length?r.notas.reduce((a,b)=>a+b)/r.notas.length:null;
     const sat=satMedia!=null?satMedia.toFixed(2).replace('.',',')+'<span class="vsub">'+satPct(satMedia)+'</span>':'—';
     const slaAt=r.resp.length?secToHMS(r.resp.reduce((a,b)=>a+b)/r.resp.length):'—';
@@ -586,7 +639,7 @@ function render(){
     const slaServ=(QUAL&&r.chamados)?Math.round(r.noPrazo/r.chamados*100)+'%':'—';
     const medCh=r.datasQ.size?Math.round(r.chamados/r.datasQ.size):'—';
     const el=document.createElement('div');el.className='ag';
-    el.innerHTML=`<div class="nome">${nome}</div>
+    el.innerHTML=`<div class="nome">${esc(entity.nome)}</div>
       <div class="grid">
         <div class="cell"><span class="k">Horas Trabalhadas</span><span class="v">${horas}</span></div>
         <div class="cell"><span class="k">SLA de serviço</span><span class="v">${slaServ}</span></div>
@@ -600,84 +653,164 @@ function render(){
   });
 
   // hbars
-  const act=activeAgentes();
   if(ORPEN){
-    const v=act.map(n=>calcAgente(n).atend);const mx=Math.max(...v,1);
-    document.getElementById('hbA').innerHTML=act.map((n,i)=>
-      `<div class="hbar-row"><div class="name">${n}</div><div class="hbar-track"><div class="hbar-fill" style="width:${v[i]/mx*100}%">${v[i]}</div></div></div>`).join('')||'<div class="empty">—</div>';
+    const v=ENTITIES.map(e=>calcEntity(e).atend);const mx=Math.max(...v,1);
+    const html=ENTITIES.map((e,i)=>
+      `<div class="hbar-row"><div class="name">${esc(e.nome)}</div><div class="hbar-track"><div class="hbar-fill" style="width:${v[i]/mx*100}%">${v[i]}</div></div></div>`).join('')||'<div class="empty">—</div>';
+    document.querySelectorAll('.hb-orpen').forEach(el=>el.innerHTML=html);
   }
   if(QUAL){
-    const v=act.map(n=>calcAgente(n).chamados);const mx=Math.max(...v,1);
-    document.getElementById('hbB').innerHTML=act.map((n,i)=>
-      `<div class="hbar-row"><div class="name">${n}</div><div class="hbar-track"><div class="hbar-fill" style="width:${v[i]/mx*100}%">${v[i]}</div></div></div>`).join('')||'<div class="empty">—</div>';
+    const v=ENTITIES.map(e=>calcEntity(e).chamados);const mx=Math.max(...v,1);
+    const html=ENTITIES.map((e,i)=>
+      `<div class="hbar-row"><div class="name">${esc(e.nome)}</div><div class="hbar-track"><div class="hbar-fill" style="width:${v[i]/mx*100}%">${v[i]}</div></div></div>`).join('')||'<div class="empty">—</div>';
+    document.querySelectorAll('.hb-qual').forEach(el=>el.innerHTML=html);
   }
 
   renderDiag();
-  renderCfg();
+  renderMapping();
   document.getElementById('btnExport').style.display=(ORPEN||QUAL)?'inline-block':'none';
 }
 
-function renderCfg(){
-  if(!AGENTS.length){document.getElementById('cfg').style.display='none';return;}
-  document.getElementById('cfg').style.display='block';
+function renderMapping(){
+  const cfg=document.getElementById('cfg');
+  cfg.style.display=(ORPEN||QUAL)?'block':'none';
+  if(!ORPEN&&!QUAL)return;
   const b=document.getElementById('cfgBody');b.innerHTML='';
-  AGENTS.forEach((a,i)=>{
-    const wrap=document.createElement('div');
-    const varO=a.variantesOrpen||[],varQ=a.variantesQual||[];
-    const varParts=[];
-    if(varO.length)varParts.push('<span class="cfgSrc">Orpen:</span> '+esc(varO.join(', ')));
-    if(varQ.length)varParts.push('<span class="cfgSrc">Qualitor:</span> '+esc(varQ.join(', ')));
-    const casado=varO.length>0&&varQ.length>0;
-    wrap.innerHTML=`<label style="display:flex;align-items:flex-start;gap:9px;padding:6px 2px;font-size:12px;cursor:pointer">
-      <input type="checkbox" ${a.show?'checked':''} data-i="${i}" class="cfgChk" style="margin-top:3px;flex-shrink:0">
-      <div style="flex:1;min-width:0">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <span style="min-width:150px;font-weight:600">${esc(a.alias||a.nome)}</span>
-          <span style="color:var(--txt2);font-size:11px">exibir como:</span>
-          <input type="text" class="cfgAlias" data-i="${i}" value="${esc(a.alias||'')}" placeholder="(mesmo nome)">
-          ${casado?'<span class="cfgUnif">casado entre fontes</span>':''}
-        </div>
-        ${varParts.length?`<div class="cfgVars">${varParts.join(' &nbsp;·&nbsp; ')}</div>`:''}
+
+  // toolbar: create new entity + import/export
+  const toolbar=document.createElement('div');
+  toolbar.className='map-new';
+  toolbar.innerHTML=`
+    <input class="map-name-inp" id="newEntityNome" placeholder="Nome do agente…">
+    <button class="upbtn" id="btnAddEntity">+ Criar entidade</button>
+    <button class="upbtn sec" id="btnExportMap">⬇ Exportar mapeamento</button>
+    <label class="upbtn sec" style="cursor:pointer">⬆ Importar mapeamento<input type="file" id="fImportMap" accept=".json" hidden></label>`;
+  b.appendChild(toolbar);
+
+  document.getElementById('btnAddEntity').onclick=()=>{
+    const inp=document.getElementById('newEntityNome');
+    const nome=inp.value.trim();if(!nome)return;
+    ENTITIES.push({id:nextEid++,nome,orpenLinks:[],qualLinks:[]});
+    inp.value='';render();
+  };
+  document.getElementById('btnExportMap').onclick=exportMapping;
+  document.getElementById('fImportMap').onchange=e=>{if(e.target.files[0])importMapping(e.target.files[0]);};
+
+  if(!ENTITIES.length){
+    const hint=document.createElement('div');hint.className='map-hint';
+    hint.textContent='Nenhuma entidade criada. Use o campo acima para adicionar agentes e depois vincule os nomes-fonte de cada relatório.';
+    b.appendChild(hint);
+  }
+
+  // entity cards
+  ENTITIES.forEach((entity,ei)=>{
+    const linkedOrp=new Set(entity.orpenLinks.map(norm));
+    const linkedQual=new Set(entity.qualLinks.map(norm));
+    const availOrp=ORPEN_SOURCES.filter(s=>!linkedOrp.has(norm(s))||entity.orpenLinks.some(l=>norm(l)===norm(s)));
+    const availQual=QUAL_SOURCES.filter(s=>!linkedQual.has(norm(s))||entity.qualLinks.some(l=>norm(l)===norm(s)));
+    // filter out already linked to OTHER entities
+    const otherOrp=new Set();ENTITIES.forEach((e2,j)=>{if(j!==ei)e2.orpenLinks.forEach(s=>otherOrp.add(norm(s)));});
+    const otherQual=new Set();ENTITIES.forEach((e2,j)=>{if(j!==ei)e2.qualLinks.forEach(s=>otherQual.add(norm(s)));});
+    const freeOrp=ORPEN_SOURCES.filter(s=>!otherOrp.has(norm(s))&&!linkedOrp.has(norm(s)));
+    const freeQual=QUAL_SOURCES.filter(s=>!otherQual.has(norm(s))&&!linkedQual.has(norm(s)));
+
+    const card=document.createElement('div');card.className='map-entity';
+    card.innerHTML=`
+      <div class="map-entity-hdr">
+        <span class="map-entity-name">${esc(entity.nome)}</span>
+        <button class="upbtn sec" style="font-size:11px;padding:5px 10px" data-rmei="${ei}">✕ Remover</button>
       </div>
-    </label>`;
-    b.appendChild(wrap);
+      <div class="map-row">
+        <div class="map-src-col">
+          <div class="map-src-lbl">Nomes no Orpen</div>
+          <div class="map-chips" id="chipsOrp_${entity.id}">
+            ${entity.orpenLinks.map(s=>`<span class="chip orpen">${esc(s)}<button class="chip-rm" data-src="${esc(s)}" data-eid="${entity.id}" data-kind="orpen" title="Desvincular">×</button></span>`).join('')}
+          </div>
+          ${freeOrp.length?`<select class="map-sel" data-eid="${entity.id}" data-kind="orpen"><option value="">+ vincular nome Orpen…</option>${freeOrp.map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join('')}</select>`:''}
+        </div>
+        <div class="map-src-col">
+          <div class="map-src-lbl">Nomes no Qualitor</div>
+          <div class="map-chips" id="chipsQual_${entity.id}">
+            ${entity.qualLinks.map(s=>`<span class="chip qual">${esc(s)}<button class="chip-rm" data-src="${esc(s)}" data-eid="${entity.id}" data-kind="qual" title="Desvincular">×</button></span>`).join('')}
+          </div>
+          ${freeQual.length?`<select class="map-sel" data-eid="${entity.id}" data-kind="qual"><option value="">+ vincular nome Qualitor…</option>${freeQual.map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join('')}</select>`:''}
+        </div>
+      </div>`;
+    b.appendChild(card);
   });
-  b.querySelectorAll('.cfgChk').forEach(c=>c.onchange=e=>{AGENTS[+e.target.dataset.i].show=e.target.checked;render();});
-  b.querySelectorAll('.cfgAlias').forEach(c=>c.onchange=e=>{AGENTS[+e.target.dataset.i].alias=e.target.value.trim();render();});
+
+  // remove entity buttons
+  b.querySelectorAll('[data-rmei]').forEach(btn=>{
+    btn.onclick=()=>{ENTITIES.splice(+btn.dataset.rmei,1);render();};
+  });
+  // chip remove (unlink)
+  b.querySelectorAll('.chip-rm').forEach(btn=>{
+    btn.onclick=()=>{
+      const e=ENTITIES.find(x=>x.id===+btn.dataset.eid);if(!e)return;
+      const arr=btn.dataset.kind==='orpen'?e.orpenLinks:e.qualLinks;
+      const idx=arr.findIndex(s=>s===btn.dataset.src);
+      if(idx>=0)arr.splice(idx,1);
+      render();
+    };
+  });
+  // selects to link
+  b.querySelectorAll('.map-sel').forEach(sel=>{
+    sel.onchange=()=>{
+      const val=sel.value;if(!val)return;
+      const e=ENTITIES.find(x=>x.id===+sel.dataset.eid);if(!e)return;
+      if(sel.dataset.kind==='orpen'){if(!e.orpenLinks.includes(val))e.orpenLinks.push(val);}
+      else{if(!e.qualLinks.includes(val))e.qualLinks.push(val);}
+      render();
+    };
+  });
+
+  // unlinked sources
+  const linkedOrpAll=new Set(ENTITIES.flatMap(e=>e.orpenLinks.map(norm)));
+  const linkedQualAll=new Set(ENTITIES.flatMap(e=>e.qualLinks.map(norm)));
+  const unlOrp=ORPEN_SOURCES.filter(s=>!linkedOrpAll.has(norm(s)));
+  const unlQual=QUAL_SOURCES.filter(s=>!linkedQualAll.has(norm(s)));
+  if(unlOrp.length||unlQual.length){
+    const sec=document.createElement('div');sec.className='map-unlinked';
+    const parts=[];
+    if(unlOrp.length)parts.push(`<span class="map-unlinked-lbl">Orpen sem vínculo:</span> `+unlOrp.map(esc).join(', '));
+    if(unlQual.length)parts.push(`<span class="map-unlinked-lbl">Qualitor sem vínculo:</span> `+unlQual.map(esc).join(', '));
+    sec.innerHTML=parts.join('<br>');
+    b.appendChild(sec);
+  }
 }
 
 function renderDiag(){
   const db=document.getElementById('diagbox');
   if(!ORPEN&&!QUAL){db.style.display='none';return;}
-  const nOrpen=AGENTS.filter(a=>a.variantesOrpen&&a.variantesOrpen.length>0).length;
-  const nQual=AGENTS.filter(a=>a.variantesQual&&a.variantesQual.length>0).length;
-  const nCasados=AGENTS.filter(a=>a.variantesOrpen&&a.variantesOrpen.length>0&&a.variantesQual&&a.variantesQual.length>0).length;
-  const nUnif=AGENTS.filter(a=>(a.variantesOrpen&&a.variantesOrpen.length>0)||(a.variantesQual&&a.variantesQual.length>0)).length;
-  let semAgOrpen=0,semAgQual=0;
-  if(ORPEN)ORPEN.rows.forEach(r=>{if(ORPEN.finalizadorLinha(r)==='Outros')semAgOrpen++;});
-  if(QUAL)QUAL.rows.forEach(r=>{if(!String(r[QUAL.cResp]||'').trim())semAgQual++;});
+  const linkedOrpAll=new Set(ENTITIES.flatMap(e=>e.orpenLinks.map(norm)));
+  const linkedQualAll=new Set(ENTITIES.flatMap(e=>e.qualLinks.map(norm)));
+  const nEntities=ENTITIES.length;
+  const nComBoth=ENTITIES.filter(e=>e.orpenLinks.length>0&&e.qualLinks.length>0).length;
+  const unlOrp=ORPEN_SOURCES.filter(s=>!linkedOrpAll.has(norm(s))).length;
+  const unlQual=QUAL_SOURCES.filter(s=>!linkedQualAll.has(norm(s))).length;
+  let semAgOrpen=0;
+  if(ORPEN)ORPEN.rows.forEach(r=>{if(!ORPEN.algumaEntidadeParticipa(r))semAgOrpen++;});
   const parts=[];
-  if(ORPEN)parts.push(`<b>Orpen:</b> ${nOrpen} agente${nOrpen!==1?'s':''} detectado${nOrpen!==1?'s':''}`);
-  if(QUAL)parts.push(`<b>Qualitor:</b> ${nQual} agente${nQual!==1?'s':''} detectado${nQual!==1?'s':''}`);
-  if(ORPEN&&QUAL)parts.push(`<b>${nUnif}</b> único${nUnif!==1?'s':''} · <b>${nCasados}</b> casado${nCasados!==1?'s':''} entre fontes`);
+  parts.push(`<b>${nEntities}</b> entidade${nEntities!==1?'s':''} mapeada${nEntities!==1?'s':''}`);
+  if(nEntities)parts.push(`<b>${nComBoth}</b> com ambas as fontes`);
+  if(ORPEN)parts.push(`Orpen: <b>${ORPEN_SOURCES.length}</b> nome${ORPEN_SOURCES.length!==1?'s':''} (${unlOrp} sem vínculo)`);
+  if(QUAL)parts.push(`Qualitor: <b>${QUAL_SOURCES.length}</b> nome${QUAL_SOURCES.length!==1?'s':''} (${unlQual} sem vínculo)`);
   if(semAgOrpen>0)parts.push(`<span style="color:var(--bad)">${semAgOrpen} atendimento${semAgOrpen!==1?'s':''} sem agente (Outros)</span>`);
-  if(semAgQual>0)parts.push(`<span style="color:var(--bad)">${semAgQual} chamado${semAgQual!==1?'s':''} sem responsável</span>`);
   db.style.display='block';
-  db.innerHTML='<b>Diagnóstico de agentes —</b> '+parts.join(' &nbsp;·&nbsp; ');
+  db.innerHTML='<b>Diagnóstico —</b> '+parts.join(' &nbsp;·&nbsp; ');
 }
 
 /* ---------- exportar Excel ---------- */
 function exportExcel(){
   if(!ORPEN&&!QUAL)return;
   const wb=XLSX.utils.book_new();
-  const act=activeAgentes();
 
-  // ---- Aba 1: Dashboard (KPIs + tabela por agente) ----
+  // ---- Aba 1: Dashboard (KPIs + tabela por entidade) ----
   const dash=[];
   let totO='',sat='',per='';
   if(ORPEN){
     let t=0,notas=[];
-    ORPEN.rows.forEach(r=>{if(ORPEN.finalizadorLinha(r)!=='Outros')t++;
+    ORPEN.rows.forEach(r=>{if(ORPEN.algumaEntidadeParticipa(r))t++;
       const n=num(r[ORPEN.cNota]);if(!isNaN(n))notas.push(n);});
     totO=t; sat=notas.length?+(notas.reduce((a,b)=>a+b)/notas.length).toFixed(2):'';
     per=periodoOrpen();
@@ -695,11 +828,11 @@ function exportExcel(){
   dash.push([]);
   dash.push(['Agente','Horas Trabalhadas','SLA de serviço','Atendimentos Orpen',
              'Satisfação','SLA de atendimento','Média Atend/Dia','Média Chamados/Dia']);
-  act.forEach(nome=>{
-    const r=calcAgente(nome);
+  ENTITIES.forEach(entity=>{
+    const r=calcEntity(entity);
     const satA=r.notas.length?+(r.notas.reduce((a,b)=>a+b)/r.notas.length).toFixed(2):'';
     const slaAt=r.resp.length?secToHMS(r.resp.reduce((a,b)=>a+b)/r.resp.length):'';
-    dash.push([nome,
+    dash.push([entity.nome,
       QUAL?minToHM(r.horasMin):'',
       (QUAL&&r.chamados)?Math.round(r.noPrazo/r.chamados*100)/100:'',
       ORPEN?r.atend:'',
@@ -710,9 +843,8 @@ function exportExcel(){
   });
   const wsD=XLSX.utils.aoa_to_sheet(dash);
   wsD['!cols']=[{wch:26},{wch:16},{wch:14},{wch:16},{wch:11},{wch:16},{wch:14},{wch:16}];
-  // formato % na coluna SLA de serviço (col C, a partir da linha da tabela de agentes)
-  const baseRow=11; // 1-based: linha do 1º agente
-  act.forEach((_,i)=>{const c=wsD['C'+(baseRow+i)];if(c&&typeof c.v==='number')c.z='0%';});
+  const baseRow=11;
+  ENTITIES.forEach((_,i)=>{const c=wsD['C'+(baseRow+i)];if(c&&typeof c.v==='number')c.z='0%';});
   XLSX.utils.book_append_sheet(wb,wsD,'Dashboard');
 
   // ---- Aba 2: Atendimentos Orpen (linha a linha + derivados) ----
@@ -741,6 +873,36 @@ function exportExcel(){
 }
 
 
+/* ---------- exportar / importar mapeamento ---------- */
+function exportMapping(){
+  const data=JSON.stringify({entities:ENTITIES},null,2);
+  const blob=new Blob([data],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='mapeamento_agentes.json';
+  a.click();URL.revokeObjectURL(a.href);
+}
+
+function importMapping(file){
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const obj=JSON.parse(e.target.result);
+      if(!Array.isArray(obj.entities))throw new Error('formato inválido');
+      const orpNorm=new Set(ORPEN_SOURCES.map(norm));
+      const quaNorm=new Set(QUAL_SOURCES.map(norm));
+      ENTITIES=obj.entities.map(en=>({
+        id:nextEid++,
+        nome:String(en.nome||'').trim(),
+        orpenLinks:(en.orpenLinks||[]).filter(s=>orpNorm.has(norm(s))),
+        qualLinks:(en.qualLinks||[]).filter(s=>quaNorm.has(norm(s))),
+      })).filter(en=>en.nome);
+      render();
+    }catch(err){alert('Erro ao importar mapeamento: '+err.message);}
+  };
+  reader.readAsText(file);
+}
+
 function handle(file,slotHint){
   const tagId=slotHint==='A'?'tagA':'tagB';
   const tag=document.getElementById(tagId);tag.textContent='carregando…';tag.className='tag';
@@ -755,12 +917,65 @@ function handle(file,slotHint){
     const kind=classify(rows);
     if(kind==='orpen')ORPEN=processOrpen(rows);else QUAL=processQual(rows);
     tag.textContent=`✓ ${file.name} (${kind})`;tag.className='tag ok';
-    rebuildAgentList();render();
+    rebuildSourceLists();render();
   });
 }
 document.getElementById('fA').addEventListener('change',e=>{if(e.target.files[0])handle(e.target.files[0],'A');});
 document.getElementById('fB').addEventListener('change',e=>{if(e.target.files[0])handle(e.target.files[0],'B');});
 document.getElementById('btnExport').addEventListener('click',exportExcel);
+
+/* ---------- busca ORPEN via API (backend local) ---------- */
+// yyyy-mm-dd (input date) -> dd/mm/aaaa (formato da API Orpen)
+function isoToBR(iso){const[y,m,d]=iso.split('-');return `${d}/${m}/${y}`;}
+async function fetchOrpenApi(){
+  const startEl=document.getElementById('orpenStart'), endEl=document.getElementById('orpenEnd');
+  const tag=document.getElementById('tagA');
+  if(!startEl.value||!endEl.value){alert('Selecione data inicial e final.');return;}
+  const start=isoToBR(startEl.value), end=isoToBR(endEl.value);
+  const btn=document.getElementById('btnOrpenApi');
+  btn.disabled=true;tag.textContent='sincronizando…';tag.className='tag';
+  try{
+    const syncRes=await fetch('/api/orpen/sync',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({start,end})});
+    const syncBody=await syncRes.json();
+    if(!syncRes.ok)throw new Error(syncBody.error||'falha na sincronização');
+
+    const dataRes=await fetch(`/api/orpen/data?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`);
+    if(!dataRes.ok)throw new Error('falha ao ler dados armazenados');
+    const rows=await dataRes.json();
+    if(!rows.length){tag.textContent='✗ nenhum atendimento no período';tag.className='tag err';return;}
+
+    ORPEN=processOrpen(rows);
+    tag.textContent=`✓ API ${start}–${end} (${syncBody.row_count} novos/atualizados, ${rows.length} no período)`;
+    tag.className='tag ok';
+    rebuildSourceLists();render();
+  }catch(err){
+    tag.textContent='✗ '+err.message;tag.className='tag err';
+  }finally{
+    btn.disabled=false;
+  }
+}
+document.getElementById('btnOrpenApi').addEventListener('click',fetchOrpenApi);
+
+document.getElementById('btnSyncOntem').addEventListener('click',()=>{
+  const ontem=new Date();ontem.setDate(ontem.getDate()-1);
+  const iso=ontem.toISOString().slice(0,10);
+  document.getElementById('orpenStart').value=iso;
+  document.getElementById('orpenEnd').value=iso;
+  fetchOrpenApi();
+});
+
+/* ---------- abas (Visão Geral / ORPEN / QUALITOR) ---------- */
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const tab=btn.dataset.tab;
+    document.querySelectorAll('.tabpanel').forEach(p=>{
+      p.style.display=(p.dataset.tabpanel===tab)?'':'none';
+    });
+  });
+});
 </script>
 </body>
 </html>

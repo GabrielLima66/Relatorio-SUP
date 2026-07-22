@@ -3,3 +3,9 @@
 *.xlsx
 *.xls
 .DS_Store
+
+# backend
+backend/.env
+backend/dashboard.db
+backend/__pycache__/
+backend/venv/
