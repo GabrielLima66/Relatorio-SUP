@@ -10,3 +10,8 @@ backend/dashboard.db
 backend/__pycache__/
 backend/venv/
 backend/qualitor_session.json
+
+# tooling do Claude Code (skills instaladas localmente, não é parte do app)
+.claude/
+.agents/
+skills-lock.json

@@ -1,0 +1,11 @@
+.git
+.claude
+.agents
+design_handoff_grafico_geral
+*.zip
+skills-lock.json
+backend/.env
+backend/dashboard.db
+backend/qualitor_session.json
+backend/__pycache__
+**/__pycache__

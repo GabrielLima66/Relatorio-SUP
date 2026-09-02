@@ -1,0 +1,15 @@
+services:
+  dashboard-sup:
+    build: .
+    container_name: dashboard-sup
+    restart: unless-stopped
+    ports:
+      # troque pelo IP da interface VPN do servidor, pra não expor a outras redes
+      # (ex.: "100.101.45.121:5000:5000" ou "172.31.1.21:5000:5000")
+      - "SEU_IP_VPN:5000:5000"
+    volumes:
+      # repo inteiro montado dentro do container — código, .env, dashboard.db e
+      # qualitor_session.json continuam exatamente onde já estão (backend/),
+      # sem precisar mudar path nenhum no código.
+      - .:/app
+    working_dir: /app/backend
