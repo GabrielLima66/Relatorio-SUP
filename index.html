@@ -246,6 +246,10 @@
   .chart-combo-legend .dot{width:9px;height:9px;border-radius:2px;display:inline-block}
   .dot-orpen{background:var(--roxo)}
   .dot-qual{background:var(--magenta)}
+  /* min-width próprio: as 2 barras (16px + 16px + gap 3px = 35px) já passam do
+     min-width:30px herdado de .bar-col — sem isso, período longo (muitos dias,
+     shrink forçado) espreme as duas barras pra caber, ficando ilegível */
+  .bar-col.combo{min-width:46px}
   .bar-col.combo .bar-pair{display:flex;align-items:flex-end;gap:3px}
   .bar-col.combo .bar{width:16px}
   .bar-col.combo .bar.qual{background:linear-gradient(180deg,var(--magenta),var(--roxo-esc))}
