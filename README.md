@@ -206,6 +206,10 @@ já implementam o que está descrito abaixo.
   porta via NAT do Docker. `docker-compose.yml` referencia `vlan_sede` como `external: true`
   (a network já precisa existir no host antes do `docker compose up`). Sem nginx na frente;
   não é necessário.
+- **Porta**: gunicorn escuta na **80** dentro do container (`Dockerfile`), não 5000 — o
+  gateway da VPN (`10.10.10.1`) só encaminha 80/443 pra essa rede por padrão, e essa porta
+  já é a que os outros containers (ex.: `ura-builder`) usam sem precisar mexer no gateway.
+  Acesso final: `http://172.30.8.51` (sem porta na URL).
   - **Gotcha conhecido de macvlan**: por padrão o host não enxerga containers na mesma
     macvlan (limitação do driver, não bug) — `curl` direto do host ao IP do container pode
     falhar mesmo com tudo certo; validar de outra máquina na mesma rede/VPN. Não afeta o
@@ -229,9 +233,9 @@ já implementam o que está descrito abaixo.
   3. Confirmar que a network `vlan_sede` já existe no host (`docker network ls`) e que
      `172.30.8.51` está livre nela.
   4. `docker compose up -d --build`.
-  5. Conferir de outra máquina na mesma VPN: `curl http://172.30.8.51:5000/api/session`
-     (ou abrir no navegador) — lembrando do gotcha de macvlan acima, testar do host mesmo
-     pode não funcionar.
+  5. Conferir de outra máquina na mesma VPN: `curl http://172.30.8.51/api/session` (ou
+     abrir no navegador) — lembrando do gotcha de macvlan acima, testar do host mesmo pode
+     não funcionar.
   6. Adicionar as duas linhas de cron acima (`crontab -e` no host).
 - **Deploy de código depois da primeira vez**: SSH manual — `git pull` +
   `docker compose up -d --build` (ou só `docker compose restart` se não mexeu em
