@@ -201,9 +201,15 @@ já implementam o que está descrito abaixo.
   `dashboard.db` começa vazio (`db.init_db()` cria sozinho) ou, pra levar o histórico já
   sincronizado, um `scp` avulso do arquivo atual; `qualitor_session.json` não precisa de
   nada, é criado no primeiro login.
-- **Porta**: `docker-compose.yml` publica a porta 5000 só na interface da VPN do servidor
-  (trocar o placeholder `SEU_IP_VPN` pelo IP real) — evita expor o dashboard em outras
-  redes do host. Sem nginx na frente; não é necessário.
+- **Rede**: o container entra na macvlan **`vlan_sede`**, já existente no servidor (mesmo
+  padrão dos outros projetos que já rodam lá), com IP fixo **`172.30.8.51`** — sem publicar
+  porta via NAT do Docker. `docker-compose.yml` referencia `vlan_sede` como `external: true`
+  (a network já precisa existir no host antes do `docker compose up`). Sem nginx na frente;
+  não é necessário.
+  - **Gotcha conhecido de macvlan**: por padrão o host não enxerga containers na mesma
+    macvlan (limitação do driver, não bug) — `curl` direto do host ao IP do container pode
+    falhar mesmo com tudo certo; validar de outra máquina na mesma rede/VPN. Não afeta o
+    `docker exec` do cron abaixo, que roda dentro do container sem depender da rede.
 - **Supervisão**: `restart: unless-stopped` no compose cobre reinício em crash e nas
   próximas subidas do Docker daemon (inclusive no boot da máquina, se o daemon já estiver
   configurado pra subir sozinho) — sem precisar de unit de systemd separada pro app.
@@ -220,11 +226,12 @@ já implementam o que está descrito abaixo.
   1. No servidor: `git clone <repo> /opt/dashboard-sup && cd /opt/dashboard-sup`.
   2. Criar `backend/.env` (copiar de `backend/.env.example` e preencher com as credenciais
      reais — `scp`/editor direto no servidor, nunca via git).
-  3. Editar `docker-compose.yml`, trocando `SEU_IP_VPN` pelo IP real da interface VPN do
-     servidor.
+  3. Confirmar que a network `vlan_sede` já existe no host (`docker network ls`) e que
+     `172.30.8.51` está livre nela.
   4. `docker compose up -d --build`.
-  5. Conferir: `curl http://SEU_IP_VPN:5000/api/session` (ou abrir no navegador, de uma
-     máquina na mesma VPN).
+  5. Conferir de outra máquina na mesma VPN: `curl http://172.30.8.51:5000/api/session`
+     (ou abrir no navegador) — lembrando do gotcha de macvlan acima, testar do host mesmo
+     pode não funcionar.
   6. Adicionar as duas linhas de cron acima (`crontab -e` no host).
 - **Deploy de código depois da primeira vez**: SSH manual — `git pull` +
   `docker compose up -d --build` (ou só `docker compose restart` se não mexeu em
