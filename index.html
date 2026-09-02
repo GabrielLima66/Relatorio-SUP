@@ -8,13 +8,13 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
     --roxo:#6b1f6e; --roxo-esc:#3c0f40; --roxo-claro:#a052a3;
     --magenta:#c01f7c; --accent:#dc9a35;
     --bg:#f5eff6; --card:#fff; --linha:#e6dbe9;
-    --txt:#2a1530; --txt2:#6b5470; --ok:#2f8259; --bad:#c2483d;
+    --txt:#2a1530; --txt2:#6b5470; --txt3:#a890ac; --ok:#2f8259; --bad:#c2483d;
   }
   *{box-sizing:border-box}
   body{margin:0;
@@ -28,22 +28,30 @@
   @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 
   header.app{display:flex;align-items:center;gap:16px;margin-bottom:22px;flex-wrap:wrap;
-    padding-bottom:18px;border-bottom:1px solid var(--linha)}
+    background:var(--card);border:1px solid var(--linha);border-radius:16px;
+    padding:18px 22px;box-shadow:0 3px 14px -6px rgba(74,18,74,.1)}
   .logo{display:flex;align-items:center;gap:12px}
   .logo img{height:42px;width:auto;display:block}
   .logo .sub{font-family:'Plus Jakarta Sans',sans-serif;font-size:10px;font-weight:700;
-    letter-spacing:2.2px;text-transform:uppercase;color:var(--txt2);
+    letter-spacing:2.2px;text-transform:uppercase;color:var(--txt3);
     border-left:1px solid var(--linha);padding-left:12px;margin-left:2px}
   .upbar{margin-left:auto;display:flex;gap:9px;align-items:center;flex-wrap:wrap}
   .upbtn{background:var(--roxo);color:#fff;border:none;border-radius:8px;
     padding:9px 16px;font-size:12px;cursor:pointer;font-weight:600;
     transition:.16s ease;box-shadow:0 3px 10px -3px rgba(107,31,110,.55)}
   .upbtn:hover{background:var(--roxo-esc);transform:translateY(-1px)}
-  .upbtn.sec{background:#fff;color:var(--roxo);border:1px solid var(--linha);box-shadow:none}
+  .upbtn.sec{background:#fff;color:var(--roxo);border:1.5px solid var(--roxo);box-shadow:none}
   .upbtn.sec:hover{border-color:var(--roxo-claro);background:#fbf5fc;transform:translateY(-1px)}
   .tag{font-size:11px;color:var(--txt2)}
   .tag.ok{color:var(--ok);font-weight:700}
   .tag.err{color:var(--bad);font-weight:700}
+
+  /* barra de ações secundárias (sync alternativo, upload manual, exportar) —
+     separada do cabeçalho pra não competir por espaço com a logo/ação principal */
+  .toolbar{display:flex;gap:9px;align-items:center;flex-wrap:wrap;
+    background:var(--card);border:1px solid var(--linha);border-radius:13px;
+    padding:12px 16px;margin-bottom:16px;box-shadow:0 3px 14px -6px rgba(74,18,74,.1)}
+  .toolbar-sep{width:1px;align-self:stretch;background:var(--linha);margin:0 2px}
 
   .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:16px}
   .kpi{background:var(--card);border:1px solid var(--linha);border-radius:13px;
@@ -52,12 +60,16 @@
   .kpi:hover{transform:translateY(-3px);box-shadow:0 14px 28px -10px rgba(74,18,74,.26)}
   .kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;
     background:linear-gradient(90deg,var(--magenta),var(--roxo-claro),var(--accent))}
-  .kpi h4{margin:0;color:var(--txt2);font-size:10px;font-weight:700;
+  .kpi h4{margin:0;color:var(--txt3);font-size:10px;font-weight:700;
     text-transform:uppercase;letter-spacing:1.3px;padding:16px 16px 0}
-  .kpi .val{font-family:'Fraunces',Georgia,serif;font-size:33px;font-weight:600;
+  .kpi .val{font-family:'Space Grotesk',sans-serif;font-size:33px;font-weight:600;
     text-align:left;padding:6px 16px 18px;color:var(--roxo-esc);letter-spacing:-.5px}
   .kpi .val .sub{display:block;font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;
     font-weight:700;color:var(--magenta);letter-spacing:0;margin-top:2px}
+  .kpi-highlight{background:var(--roxo);border-color:var(--roxo)}
+  .kpi-highlight::before{display:none}
+  .kpi-highlight h4{color:#e8d3e8}
+  .kpi-highlight .val{color:#fff}
 
   .panel{background:var(--card);border:1px solid var(--linha);border-radius:13px;
     padding:20px;margin-bottom:16px;box-shadow:0 3px 14px -6px rgba(74,18,74,.1)}
@@ -97,17 +109,19 @@
   .ag:hover{transform:translateY(-2px);box-shadow:0 12px 24px -10px rgba(74,18,74,.2)}
   .ag .nome{background:linear-gradient(120deg,var(--roxo),var(--roxo-esc));color:#fff;
     text-align:center;font-weight:700;padding:10px;font-size:13.5px;letter-spacing:.2px;
-    font-family:'Fraunces',Georgia,serif}
+    font-family:'Space Grotesk',sans-serif}
   .ag .grid{display:grid;grid-template-columns:1fr 1fr}
   .ag .cell{padding:10px}
-  .ag .cell .k{font-size:9px;color:var(--txt2);text-transform:uppercase;letter-spacing:.8px;
+  .ag .cell:nth-child(odd){border-right:1px solid var(--linha)}
+  .ag .cell:not(:nth-last-child(-n+2)){border-bottom:1px solid var(--linha)}
+  .ag .cell .k{font-size:9px;color:var(--txt3);text-transform:uppercase;letter-spacing:.8px;
     display:block;margin-bottom:5px;font-weight:700}
-  .ag .cell .v{font-family:'Fraunces',Georgia,serif;font-size:19px;font-weight:600;color:var(--roxo-esc)}
+  .ag .cell .v{font-family:'Space Grotesk',sans-serif;font-size:19px;font-weight:600;color:var(--roxo-esc)}
   .ag .cell .v .vsub{display:block;font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;
     font-weight:700;color:var(--magenta);margin-top:1px}
   .ag .med{background:var(--bg);text-align:center;padding:9px;border-top:1px solid var(--linha)}
-  .ag .med .k{font-size:9px;color:var(--txt2);text-transform:uppercase;letter-spacing:.8px;font-weight:700}
-  .ag .med .v{font-family:'Fraunces',Georgia,serif;font-size:18px;font-weight:600;color:var(--roxo-esc)}
+  .ag .med .k{font-size:9px;color:var(--txt3);text-transform:uppercase;letter-spacing:.8px;font-weight:700}
+  .ag .med .v{font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:600;color:var(--roxo-esc)}
 
   .hbars{display:flex;flex-direction:column;gap:13px;padding:4px 0}
   .hbar-row{display:flex;align-items:center;gap:12px}
@@ -125,7 +139,7 @@
 
   .tabs{display:flex;gap:6px;margin-bottom:18px;border-bottom:1px solid var(--linha)}
   .tab-btn{background:none;border:none;padding:8px 18px;font-size:12px;font-weight:700;
-    color:var(--txt2);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-1px;
+    color:var(--txt3);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-1px;
     text-transform:uppercase;letter-spacing:.8px;transition:.15s ease;font-family:inherit}
   .tab-btn:hover{color:var(--roxo)}
   .tab-btn.active{color:var(--roxo-esc);border-bottom-color:var(--magenta)}
@@ -144,10 +158,23 @@
   .cfg .body{background:var(--card);border:1px solid var(--linha);border-top:none;
     border-radius:0 0 10px 10px;padding:14px}
   .cfg label{display:flex;align-items:center;gap:9px;padding:5px 0;font-size:12px}
-  .cfg input[type=text]{border:1px solid var(--linha);border-radius:5px;padding:4px 8px;font-size:12px}
-  .cfg input[type=text]:focus{outline:none;border-color:var(--roxo-claro)}
+  .cfg input[type=text],.cfg input[type=password]{border:1px solid var(--linha);border-radius:5px;padding:4px 8px;font-size:12px}
+  .cfg input[type=text]:focus,.cfg input[type=password]:focus{outline:none;border-color:var(--roxo-claro)}
   /* painel de mapeamento de agentes */
   .cfgSrc{font-weight:700;color:var(--roxo);font-size:10px}
+
+  /* painel de credenciais (Orpen/Qualitor) */
+  .creds-group{margin-bottom:16px}
+  .creds-group h4{margin:0 0 8px;font-size:10px;font-weight:800;text-transform:uppercase;
+    letter-spacing:1px;color:var(--txt3)}
+  .creds-field{display:flex;align-items:center;gap:8px;padding:4px 0}
+  .creds-field label{width:170px;flex-shrink:0;font-size:12px;color:var(--txt2)}
+  .creds-input-wrap{display:flex;align-items:center;gap:4px;flex:1;min-width:0}
+  .creds-input-wrap input{flex:1;min-width:0}
+  .creds-toggle{background:none;border:1px solid var(--linha);border-radius:5px;cursor:pointer;
+    font-size:12px;padding:3px 7px;line-height:1;flex-shrink:0}
+  .creds-toggle:hover{border-color:var(--roxo-claro)}
+  .creds-actions{display:flex;align-items:center;gap:10px;margin-top:14px}
   .map-new{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
   .map-name-inp{border:1px solid var(--linha);border-radius:8px;padding:8px 12px;font-size:13px;
     font-family:inherit;color:var(--txt);flex:1;min-width:160px;max-width:260px}
@@ -155,12 +182,12 @@
   .map-entity{background:var(--bg);border:1px solid var(--linha);border-radius:10px;
     padding:12px 14px;margin-bottom:8px}
   .map-entity-hdr{display:flex;align-items:center;gap:8px;margin-bottom:10px}
-  .map-entity-name{font-weight:700;font-size:14px;font-family:'Fraunces',Georgia,serif;
-    color:var(--roxo-esc);flex:1}
+  .map-entity-name{font-weight:700;font-size:14px;font-family:'Space Grotesk',sans-serif;
+    color:var(--txt);flex:1}
   .map-row{display:flex;gap:14px;flex-wrap:wrap}
   .map-src-col{flex:1;min-width:180px}
   .map-src-lbl{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1.1px;
-    color:var(--txt2);margin-bottom:5px}
+    color:var(--txt3);margin-bottom:5px}
   .map-chips{display:flex;flex-wrap:wrap;gap:4px;min-height:22px}
   .chip{display:inline-flex;align-items:center;gap:4px;border-radius:20px;padding:3px 10px;
     font-size:11px;font-weight:600;line-height:1.4}
@@ -175,10 +202,54 @@
   .map-unlinked{margin-top:10px;padding:10px 12px;background:var(--card);
     border:1px dashed var(--linha);border-radius:8px;font-size:11px;line-height:1.8}
   .map-unlinked-lbl{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1.1px;
-    color:var(--txt2);margin-bottom:5px}
+    color:var(--txt3);margin-bottom:5px}
   .map-hint{text-align:center;padding:28px 16px;color:var(--txt2);font-style:italic;font-size:12px}
   @media(max-width:980px){.kpis{grid-template-columns:repeat(2,1fr)}.two{grid-template-columns:1fr}}
   @media(max-width:560px){.kpis{grid-template-columns:1fr 1fr}}
+
+  /* drill-down: modal com a listagem de atendimentos do dia clicado no gráfico */
+  .modal-overlay{position:fixed;inset:0;background:rgba(42,21,48,.45);
+    display:flex;align-items:center;justify-content:center;padding:24px;z-index:50}
+  .modal-box{background:var(--card);border-radius:16px;max-width:920px;width:100%;
+    max-height:85vh;display:flex;flex-direction:column;overflow:hidden;
+    box-shadow:0 20px 50px -12px rgba(42,21,48,.4)}
+  .modal-hdr{display:flex;align-items:center;gap:12px;padding:16px 20px;
+    border-bottom:1px solid var(--linha);flex-shrink:0}
+  .modal-hdr h3{margin:0;font-size:14px;color:var(--roxo);font-weight:700}
+  .modal-close{margin-left:auto;background:none;border:none;font-size:22px;line-height:1;
+    color:var(--txt2);cursor:pointer;padding:0 4px}
+  .modal-close:hover{color:var(--roxo)}
+  .modal-body{padding:16px 20px;overflow:auto}
+  .modal-table{width:100%;border-collapse:collapse;font-size:12px}
+  .modal-table th{text-align:left;font-size:9px;font-weight:800;text-transform:uppercase;
+    letter-spacing:.6px;color:var(--txt3);padding:6px 10px;border-bottom:1px solid var(--linha);
+    white-space:nowrap}
+  .modal-table td{padding:7px 10px;border-bottom:1px solid var(--linha);color:var(--txt);
+    vertical-align:top}
+  .modal-table tr:last-child td{border-bottom:none}
+  .modal-link{color:var(--magenta);font-weight:700}
+  .modal-nolink{color:var(--txt3)}
+  .modal-table tr.row-long{background:rgba(194,72,61,.08)}
+  .modal-table tr.row-long td{color:var(--bad)}
+  .cursor-pointer{cursor:pointer}
+
+  /* dia da semana abreviado embaixo das barras — fim de semana usa a mesma
+     cor de destaque já usada pro dia do mês (.bar-col.weekend .x b) */
+  .bar-col.weekend .x i.dow{color:var(--accent)}
+
+  /* gráfico combinado (aba Geral) — duas barras lado a lado por dia */
+  .chart-combo-hdr{display:flex;align-items:center;gap:14px;margin-bottom:14px;flex-wrap:wrap}
+  .chart-combo-hdr h3{margin-bottom:0}
+  .chart-combo-legend{display:flex;gap:14px;margin-left:auto;font-size:11px;
+    color:var(--txt2);font-weight:600}
+  .chart-combo-legend span{display:flex;align-items:center;gap:5px}
+  .chart-combo-legend .dot{width:9px;height:9px;border-radius:2px;display:inline-block}
+  .dot-orpen{background:var(--roxo)}
+  .dot-qual{background:var(--magenta)}
+  .bar-col.combo .bar-pair{display:flex;align-items:flex-end;gap:3px}
+  .bar-col.combo .bar{width:16px}
+  .bar-col.combo .bar.qual{background:linear-gradient(180deg,var(--magenta),var(--roxo-esc))}
+  @media(max-width:560px){.chart-combo-legend{margin-left:0;width:100%}}
 </style>
 </head>
 <body>
@@ -187,34 +258,40 @@
   <header class="app">
     <div class="logo"><img src="assets/logo.png" alt="orpen"><span class="sub">Dashboard Suporte</span></div>
     <div class="upbar">
-      <button id="btnSyncOntem" class="upbtn" title="Sincroniza o dia anterior — a mesma janela que a sincronização automática das 2h usa">↻ Sincronizar ontem</button>
       <input id="orpenStart" type="date" class="upbtn sec" style="cursor:auto;padding:8px 10px">
       <input id="orpenEnd" type="date" class="upbtn sec" style="cursor:auto;padding:8px 10px">
-      <button id="btnOrpenApi" class="upbtn">🔄 Buscar ORPEN (API)</button>
-      <label class="upbtn sec">📄 Relatório ORPEN (R97)
-        <input id="fA" type="file" accept=".csv,.xlsx,.xls,.htm,.html" hidden></label>
-      <span id="tagA" class="tag">nenhum arquivo</span>
-      <button id="btnQualitorApi" class="upbtn">🔄 Buscar QUALITOR (API)</button>
-      <label class="upbtn sec">📄 Relatório QUALITOR
-        <input id="fB" type="file" accept=".csv,.xlsx,.xls,.htm,.html" hidden></label>
-      <span id="tagB" class="tag">nenhum arquivo</span>
-      <button id="btnExport" class="upbtn" style="display:none">⬇ Exportar Excel</button>
+      <button id="btnOrpenApi" class="upbtn" title="Sincroniza ORPEN e QUALITOR ao mesmo tempo">🔄 Buscar ORPEN + QUALITOR (API)</button>
+      <button id="btnLogout" class="upbtn sec" title="Sair">Sair</button>
     </div>
   </header>
 
-  <div id="derbox" class="derbox" style="display:none"></div>
-  <div id="diagbox" class="derbox" style="display:none"></div>
-  <details id="cfg" class="cfg" style="display:none">
-    <summary>⚙ Mapear agentes</summary>
-    <div class="body" id="cfgBody"></div>
-  </details>
+  <div class="toolbar">
+    <button id="btnSyncOntem" class="upbtn sec" title="Sincroniza ORPEN + QUALITOR do dia anterior — a mesma janela que a sincronização automática das 2h usa">↻ Sincronizar ontem</button>
+    <button id="btnQualitorApi" class="upbtn sec" title="Sincroniza só o QUALITOR, sem mexer no ORPEN">🔄 Buscar só QUALITOR (API)</button>
+    <span class="toolbar-sep"></span>
+    <label class="upbtn sec">📄 Relatório ORPEN (R97)
+      <input id="fA" type="file" accept=".csv,.xlsx,.xls,.htm,.html" hidden></label>
+    <span id="tagA" class="tag">nenhum arquivo</span>
+    <label class="upbtn sec">📄 Relatório QUALITOR
+      <input id="fB" type="file" accept=".csv,.xlsx,.xls,.htm,.html" hidden></label>
+    <span id="tagB" class="tag">nenhum arquivo</span>
+    <span class="toolbar-sep"></span>
+    <button id="btnExport" class="upbtn sec" style="display:none">⬇ Exportar Excel</button>
+  </div>
+
+  <div class="agent-filter" id="agentFilterBox" style="display:none;margin:16px 0 4px;align-items:center;gap:8px">
+    <label for="selEntityFilter" style="font-size:12px;color:var(--muted,#888)">Ver dados de:</label>
+    <select id="selEntityFilter" class="upbtn sec" style="cursor:pointer;padding:8px 10px">
+      <option value="">Todos os agentes mapeados</option>
+    </select>
+  </div>
 
   <div class="kpis">
     <div class="kpi"><h4>Total Atendimentos ORPEN</h4><div class="val" data-kpi="totO">—</div></div>
-    <div class="kpi"><h4>Satisfação Média</h4><div class="val" data-kpi="sat">—</div></div>
+    <div class="kpi cursor-pointer" id="kpiSatCard"><h4>Satisfação Média</h4><div class="val" data-kpi="sat">—</div></div>
     <div class="kpi"><h4>Total Chamados Qualitor</h4><div class="val" data-kpi="totQ">—</div></div>
     <div class="kpi"><h4>Chamados Dentro do SLA</h4><div class="val" data-kpi="sla">—</div></div>
-    <div class="kpi"><h4>Período</h4><div class="val" data-kpi="per" style="font-size:22px">—</div></div>
+    <div class="kpi kpi-highlight"><h4>Período</h4><div class="val" data-kpi="per" style="font-size:22px">—</div></div>
   </div>
 
   <div class="panel">
@@ -225,10 +302,14 @@
     </div>
 
     <div class="tabpanel" data-tabpanel="geral">
-      <h3>Atendimentos por dia</h3>
-      <div class="chart chart-orpen"><div class="empty">Suba o relatório ORPEN para ver o gráfico.</div></div>
-      <h3 style="margin-top:22px">Chamados por dia (Qualitor)</h3>
-      <div class="chart chart-qual"><div class="empty">Suba o relatório QUALITOR para ver o gráfico.</div></div>
+      <div class="chart-combo-hdr">
+        <h3>Atendimentos x Chamados por dia (comparativo)</h3>
+        <div class="chart-combo-legend">
+          <span><i class="dot dot-orpen"></i>Atendimentos ORPEN</span>
+          <span><i class="dot dot-qual"></i>Chamados QUALITOR</span>
+        </div>
+      </div>
+      <div class="chart chart-combo"><div class="empty">Suba os relatórios ORPEN e QUALITOR para ver o gráfico.</div></div>
     </div>
 
     <div class="tabpanel" data-tabpanel="orpen" style="display:none">
@@ -250,16 +331,55 @@
     <div class="panel"><h3>Chamados por Responsável (Qualitor)</h3>
       <div class="hbars hb-qual"><div class="empty">—</div></div></div>
   </div>
+
+  <div id="derbox" class="derbox" style="display:none"></div>
+  <div id="diagbox" class="derbox" style="display:none"></div>
+  <details id="cfg" class="cfg" style="display:none">
+    <summary>⚙ Mapear agentes</summary>
+    <div class="body" id="cfgBody"></div>
+  </details>
+
+  <details id="creds" class="cfg">
+    <summary>🔐 Credenciais</summary>
+    <div class="body" id="credsBody"></div>
+  </details>
+</div>
+
+<div id="loginOverlay" class="modal-overlay" style="display:none">
+  <div class="modal-box" style="max-width:340px">
+    <div class="modal-hdr"><h3>Entrar</h3></div>
+    <div class="modal-body">
+      <form id="loginForm">
+        <input type="password" id="loginPassword" class="map-name-inp" placeholder="Senha" autocomplete="current-password" style="width:100%;box-sizing:border-box">
+        <div id="loginError" class="tag err" style="display:none;margin-top:8px"></div>
+        <button type="submit" class="upbtn" style="width:100%;margin-top:12px">Entrar</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div id="drillOverlay" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <div class="modal-hdr">
+      <h3 id="drillTitle">Atendimentos</h3>
+      <button id="drillClose" class="modal-close" title="Fechar (Esc)">×</button>
+    </div>
+    <div class="modal-body" id="drillBody"></div>
+  </div>
 </div>
 
 <script>
 "use strict";
 const MESES=["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
+const DIAS_ABREV=["dom","seg","ter","qua","qui","sex","sáb"];
 let ORPEN=null, QUAL=null;            // dados processados
 let ENTITIES=[];                       // [{id,nome,orpenLinks:[],qualLinks:[]}]
 let ORPEN_SOURCES=[];                  // nomes-fonte distintos do Orpen (coluna "Agentes")
 let QUAL_SOURCES=[];                   // nomes-fonte distintos do Qualitor (coluna "Responsável")
 let nextEid=1;
+let ACTIVE_ENTITY_ID=null;             // null = agregado de todos os agentes mapeados
+let HORAS_INFLIGHT=false;              // evita chamadas sobrepostas de /api/qualitor/horas
+const HORAS_TRIED=new Set();           // protocolos já pedidos nesta sessão (sucesso ou erro)
 const derInfo={orpen:[],qual:[]};
 
 /* ---------- util ---------- */
@@ -414,23 +534,32 @@ function processOrpen(rows){
   const nomesSet=new Set();
   rows.forEach(r=>{const a=r[cAg];if(a)String(a).split('>').forEach(n=>{n=n.trim();if(n)nomesSet.add(n);});});
 
-  // finalizador = entidade cujo nome-fonte Orpen tem maior posição na cadeia (atendeu por último)
-  // usa os nomes-fonte vinculados de TODAS as entidades — independente de visibilidade
+  // nomes reais da cadeia "Agentes" na ordem em que atenderam (separados por ">")
+  function chainNomes(txt){
+    return String(txt||'').split('>').map(s=>s.trim()).filter(Boolean);
+  }
+
+  // finalizador = quem é GENUINAMENTE o último nome da cadeia (atendeu por último) —
+  // cai em "Outros" se essa pessoa não estiver mapeada, em vez de creditar por engano
+  // quem estiver mapeado no meio da cadeia (bug corrigido: antes comparava só entre os
+  // agentes já mapeados, então um agente do meio virava "finalizador"/"iniciador" só por
+  // ser o único candidato visível — ex.: protocolo 530977, "Pedro Brandes > Gustavo Gross
+  // > André Melo", André era creditado como iniciador por ser o único mapeado).
   function finalizadorLinha(r){
     if(cFimExist&&r[cFimExist]){
       const k=norm(r[cFimExist]);
       for(const e of ENTITIES)if(e.orpenLinks.some(s=>norm(s)===k))return e.nome;
       return String(r[cFimExist]).trim()||'Outros';
     }
-    const txt=r[cAg];let best=null,bestPos=-1;
-    ENTITIES.forEach(entity=>entity.orpenLinks.forEach(src=>{
-      const p=localizar(src,txt);
-      if(p!==999&&p>bestPos){bestPos=p;best=entity.nome;}
-    }));
-    return best||'Outros';
+    const nomes=chainNomes(r[cAg]);
+    if(!nomes.length)return 'Outros';
+    const k=norm(nomes[nomes.length-1]);
+    for(const e of ENTITIES)if(e.orpenLinks.some(s=>norm(s)===k))return e.nome;
+    return 'Outros';
   }
 
-  // iniciador = entidade cujo nome-fonte Orpen tem menor posição na cadeia (atendeu primeiro)
+  // iniciador = quem é GENUINAMENTE o primeiro nome da cadeia (atendeu primeiro) — mesma
+  // lógica de finalizadorLinha, espelhada pro início em vez do fim.
   const cIniExist=R(['Agente Iniciador']);
   function iniciadorLinha(r){
     if(cIniExist&&r[cIniExist]){
@@ -438,12 +567,11 @@ function processOrpen(rows){
       for(const e of ENTITIES)if(e.orpenLinks.some(s=>norm(s)===k))return e.nome;
       return String(r[cIniExist]).trim()||'Outros';
     }
-    const txt=r[cAg];let best=null,bestPos=Infinity;
-    ENTITIES.forEach(entity=>entity.orpenLinks.forEach(src=>{
-      const p=localizar(src,txt);
-      if(p!==999&&p<bestPos){bestPos=p;best=entity.nome;}
-    }));
-    return best||'Outros';
+    const nomes=chainNomes(r[cAg]);
+    if(!nomes.length)return 'Outros';
+    const k=norm(nomes[0]);
+    for(const e of ENTITIES)if(e.orpenLinks.some(s=>norm(s)===k))return e.nome;
+    return 'Outros';
   }
 
   // participação = entidade aparece em QUALQUER posição da cadeia (iniciou, transferiu ou
@@ -493,7 +621,13 @@ function processQual(rows){
     const resp=norm(r[cResp]||'');
     return ENTITIES.some(e=>e.qualLinks.some(s=>norm(s)===resp));
   }
-  return {rows,cResp,cHoras,cSit,cEnc,cPrev,dentroSLA,diaLinha,algumaEntidadeParticipa};
+  function participaLinha(r,entityNome){
+    const entity=ENTITIES.find(e=>e.nome===entityNome);
+    if(!entity)return false;
+    const resp=norm(r[cResp]||'');
+    return entity.qualLinks.some(s=>norm(s)===resp);
+  }
+  return {rows,cResp,cHoras,cSit,cEnc,cPrev,dentroSLA,diaLinha,algumaEntidadeParticipa,participaLinha};
 }
 
 /* ---------- fontes de agente ---------- */
@@ -512,13 +646,19 @@ function rebuildSourceLists(){
     QUAL_SOURCES.sort((a,b)=>a.localeCompare(b,'pt'));
   }
   // Remove vínculos de entidades cujo nome-fonte não existe nos dados atuais
-  // (ex.: novo mês carregado com agentes diferentes)
+  // (ex.: novo mês carregado com agentes diferentes) — só poda um lado quando
+  // aquele sistema já carregou de verdade nesta sessão. Sem o "if(ORPEN)"/
+  // "if(QUAL)", buscar ORPEN e QUALITOR em paralelo (fetchAllApi) causava uma
+  // corrida: se o Orpen terminasse primeiro, QUAL ainda null fazia QUAL_SOURCES
+  // ficar vazio e apagava TODOS os qualLinks, mesmo sem nenhum dado do Qualitor
+  // ter sido carregado ainda.
   const orpNorm=new Set(ORPEN_SOURCES.map(norm));
   const quaNorm=new Set(QUAL_SOURCES.map(norm));
   ENTITIES.forEach(e=>{
-    e.orpenLinks=e.orpenLinks.filter(s=>orpNorm.has(norm(s)));
-    e.qualLinks=e.qualLinks.filter(s=>quaNorm.has(norm(s)));
+    if(ORPEN)e.orpenLinks=e.orpenLinks.filter(s=>orpNorm.has(norm(s)));
+    if(QUAL)e.qualLinks=e.qualLinks.filter(s=>quaNorm.has(norm(s)));
   });
+  saveMapping();
 }
 
 /* ---------- cálculos por entidade ---------- */
@@ -566,18 +706,193 @@ function paintDayChart(containers,dataMap,unitWord){
       const v=dataMap[k],d=parseDateBR(k);
       const weekend=d.getDay()===0||d.getDay()===6;
       const col=document.createElement('div');
-      col.className='bar-col'+(weekend?' weekend':'');
+      col.className='bar-col cursor-pointer'+(weekend?' weekend':'');
       col.style.animationDelay=(i*18)+'ms';
-      col.title=`${k} · ${DIAS[d.getDay()]} — ${v} ${unitWord}${v===1?'':'s'}`;
+      col.title=`${k} · ${DIAS[d.getDay()]} — ${v} ${unitWord}${v===1?'':'s'} · clique para ver os atendimentos`;
       col.innerHTML=`<div class="bar" style="height:${Math.max(6,v/max*150)}px"><span class="lbl">${v}</span></div>
-        <div class="x"><b>${String(d.getDate()).padStart(2,'0')}</b><i>${MESES[d.getMonth()]}</i></div>`;
+        <div class="x"><b>${String(d.getDate()).padStart(2,'0')}</b><i>${MESES[d.getMonth()]}</i><i class="dow">${DIAS_ABREV[d.getDay()]}</i></div>`;
+      col.onclick=()=>openDrillDown(k);
       c.appendChild(col);
     });
   });
 }
 
+/* ---------- gráfico combinado (aba Geral) — 2 barras (Orpen + Qualitor) por dia ---------- */
+function paintComboChart(containers,mapO,mapQ){
+  const keys=[...new Set([...Object.keys(mapO),...Object.keys(mapQ)])]
+    .sort((a,b)=>parseDateBR(a)-parseDateBR(b));
+  containers.forEach(c=>{
+    if(!keys.length)return; // mantém o placeholder "Suba os relatórios..." já presente no HTML
+    const max=Math.max(...keys.map(k=>Math.max(mapO[k]||0,mapQ[k]||0)),1);
+    c.innerHTML='';
+    keys.forEach((k,i)=>{
+      const vo=mapO[k]||0,vq=mapQ[k]||0,d=parseDateBR(k);
+      const weekend=d.getDay()===0||d.getDay()===6;
+      const col=document.createElement('div');
+      col.className='bar-col combo cursor-pointer'+(weekend?' weekend':'');
+      col.style.animationDelay=(i*18)+'ms';
+      col.title=`${k} · ${DIAS_ABREV[d.getDay()]} — ${vo} atendimento${vo===1?'':'s'} ORPEN, ${vq} chamado${vq===1?'':'s'} QUALITOR · clique para ver os atendimentos`;
+      col.innerHTML=`<div class="bar-pair">
+          <div class="bar" style="height:${Math.max(6,vo/max*150)}px"><span class="lbl">${vo}</span></div>
+          <div class="bar qual" style="height:${Math.max(6,vq/max*150)}px"><span class="lbl">${vq}</span></div>
+        </div>
+        <div class="x"><b>${String(d.getDate()).padStart(2,'0')}</b><i>${MESES[d.getMonth()]}</i><i class="dow">${DIAS_ABREV[d.getDay()]}</i></div>`;
+      col.onclick=()=>openDrillDown(k);
+      c.appendChild(col);
+    });
+  });
+}
+
+/* ---------- drill-down: clique numa barra mostra os atendimentos do dia ---------- */
+// junta com o chamado Qualitor vinculado (aberto automaticamente pela transferência
+// Orpen→Qualitor) comparando o Protocolo do atendimento com "Protocolo Orpen Vinculado"
+// extraído da descrição do chamado (backend/qualitor_client._extract_orpen_protocolo).
+// Tabulação vem tipo "Pesquisa de Satisfação > Suporte - Edição de fluxo de bot" — só a
+// parte depois do último ">" é relevante (o prefixo é sempre a mesma pesquisa genérica).
+function tabulacaoCurta(v){
+  const s=String(v||'').trim();
+  const i=s.lastIndexOf('>');
+  return i>=0?s.slice(i+1).trim():s;
+}
+// monta a tabela de atendimentos (Protocolo/Agentes/Tempo/Canal/Tabulação/Nota/vínculo
+// Qualitor) reaproveitada pelos dois drill-downs (por dia e por satisfação respondida).
+// Retorna null se a lista estiver vazia — quem chama decide a mensagem de estado vazio.
+function renderAtendimentosTable(atendimentos){
+  if(!atendimentos.length)return null;
+  const rowsHtml=atendimentos.map(r=>{
+    const protocolo=r['Protocolo']||'';
+    const vinc=QUAL?QUAL.rows.filter(q=>protocolo&&String(q['Protocolo Orpen Vinculado']||'')===String(protocolo)):[];
+    const vincHtml=vinc.length
+      ?vinc.map(q=>`<span class="modal-link" title="Situação: ${esc(q['Situação']||'')}">#${esc(q['Protocolo']||'')}</span>`).join(', ')
+      :'<span class="modal-nolink">—</span>';
+    // atendimento com mais de 24h quase sempre é transferência entre setores que ficou
+    // parada, não trabalho contínuo — só um destaque visual por enquanto, sem excluir
+    // de nenhuma métrica ainda.
+    const dur=hmsToSec(r['Tempo Atendimento']);
+    const isLong=dur!=null&&dur>86400;
+    return `<tr class="${isLong?'row-long':''}" title="${isLong?'Mais de 24h — provável transferência entre setores':''}">
+      <td>${esc(protocolo)}</td>
+      <td>${esc(r['Agentes']||'')}</td>
+      <td>${esc(r['Tempo Atendimento']||'')}</td>
+      <td>${esc(r['Canal']||'')}</td>
+      <td>${esc(tabulacaoCurta(r['Tabulação']))}</td>
+      <td>${esc(r['Nota']||'')}</td>
+      <td>${vincHtml}</td>
+    </tr>`;
+  }).join('');
+  return `<table class="modal-table">
+    <thead><tr>
+      <th>Protocolo</th><th>Agentes</th><th>Tempo Atendimento</th><th>Canal</th>
+      <th>Tabulação</th><th>Nota</th><th>Chamado Qualitor</th>
+    </tr></thead>
+    <tbody>${rowsHtml}</tbody>
+  </table>`;
+}
+function openDrillDown(diaKey){
+  if(!ORPEN)return;
+  const activeEntity=getActiveEntity();
+  const cChart=ORPEN.cFimAtend||ORPEN.cData;
+  const atendimentos=ORPEN.rows.filter(r=>{
+    if(!orpenParticipa(r,activeEntity))return false;
+    const d=parseDateBR(r[cChart]);if(!d)return false;
+    return dateKey(d)===diaKey;
+  });
+
+  document.getElementById('drillTitle').textContent=`Atendimentos de ${diaKey} (${atendimentos.length})`;
+  document.getElementById('drillBody').innerHTML=renderAtendimentosTable(atendimentos)
+    ||'<div class="empty">Nenhum atendimento nesse dia.</div>';
+  document.getElementById('drillOverlay').style.display='flex';
+}
+// drill-down do KPI "Satisfação Média" — mesmos atendimentos que entram na média hoje
+// (orpenNotaConta já é o filtro usado em render() pra montar o KPI), então a contagem
+// do modal sempre bate com o número mostrado no card.
+function openSatDrillDown(){
+  if(!ORPEN)return;
+  const activeEntity=getActiveEntity();
+  const atendimentos=ORPEN.rows.filter(r=>orpenNotaConta(r,activeEntity)&&!isNaN(num(r[ORPEN.cNota])));
+
+  document.getElementById('drillTitle').textContent=`Atendimentos com satisfação respondida (${atendimentos.length})`;
+  document.getElementById('drillBody').innerHTML=renderAtendimentosTable(atendimentos)
+    ||'<div class="empty">Nenhum atendimento com pesquisa de satisfação respondida nesse período.</div>';
+  document.getElementById('drillOverlay').style.display='flex';
+}
+document.getElementById('kpiSatCard').addEventListener('click',openSatDrillDown);
+function closeDrillDown(){
+  document.getElementById('drillOverlay').style.display='none';
+}
+document.getElementById('drillClose').addEventListener('click',closeDrillDown);
+document.getElementById('drillOverlay').addEventListener('click',e=>{
+  if(e.target.id==='drillOverlay')closeDrillDown();
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape')closeDrillDown();
+});
+
+/* ---------- filtro por agente ---------- */
+// null = agregado de todos os agentes mapeados (comportamento antigo)
+function getActiveEntity(){
+  return ACTIVE_ENTITY_ID!=null?ENTITIES.find(e=>e.id===ACTIVE_ENTITY_ID)||null:null;
+}
+// participação no Orpen: da entidade ativa, ou de QUALQUER agente mapeado (agregado)
+function orpenParticipa(r,activeEntity){
+  return activeEntity?ORPEN.participaLinha(r,activeEntity.nome):ORPEN.algumaEntidadeParticipa(r);
+}
+// participação no Qualitor: idem
+function qualParticipa(r,activeEntity){
+  return activeEntity?QUAL.participaLinha(r,activeEntity.nome):QUAL.algumaEntidadeParticipa(r);
+}
+// finalizador (satisfação) é atribuído a um agente mapeado específico — no agregado,
+// conta só quando o finalizador é ALGUM agente mapeado (não "Outros"/não vinculado)
+function orpenNotaConta(r,activeEntity){
+  const fin=ORPEN.finalizadorLinha(r);
+  return activeEntity?fin===activeEntity.nome:ENTITIES.some(e=>e.nome===fin);
+}
+function renderEntityFilterOptions(){
+  const box=document.getElementById('agentFilterBox'), sel=document.getElementById('selEntityFilter');
+  if(!ENTITIES.length||!(ORPEN||QUAL)){box.style.display='none';ACTIVE_ENTITY_ID=null;return;}
+  box.style.display='flex';
+  const prev=sel.value;
+  sel.innerHTML='<option value="">Todos os agentes mapeados</option>'+
+    ENTITIES.map(e=>`<option value="${e.id}">${esc(e.nome)}</option>`).join('');
+  sel.value=ENTITIES.some(e=>String(e.id)===prev)?prev:'';
+  ACTIVE_ENTITY_ID=sel.value?+sel.value:null;
+}
+
+/* ---------- horas trabalhadas (Qualitor) — busca sob demanda ---------- */
+// A API do Qualitor não traz "Horas trabalhadas" em lote (só via GET
+// /ticket/{id}/followup, um por chamado). Buscar isso pra todo o histórico
+// sincronizado seria caro demais e majoritariamente inútil — só importa pros
+// chamados de agentes que estão de fato mapeados numa entidade. Então: a cada
+// render, se algum chamado de um agente mapeado ainda não tem a hora buscada,
+// pede em lote (paralelo, no backend) só os que faltam.
+async function maybeEnrichHoras(){
+  if(!QUAL||HORAS_INFLIGHT)return;
+  const pend=QUAL.rows.filter(r=>QUAL.algumaEntidadeParticipa(r)
+    &&!r['Horas trabalhadas']&&!HORAS_TRIED.has(r['Protocolo']));
+  if(!pend.length)return;
+  const protocolos=pend.map(r=>r['Protocolo']);
+  protocolos.forEach(p=>HORAS_TRIED.add(p));
+  HORAS_INFLIGHT=true;
+  try{
+    const res=await fetch('/api/qualitor/horas',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({protocolos})});
+    if(!res.ok)throw new Error('falha ao buscar horas trabalhadas');
+    const horasById=await res.json();
+    const byId={};QUAL.rows.forEach(r=>{byId[r['Protocolo']]=r;});
+    Object.entries(horasById).forEach(([pid,hhmm])=>{if(byId[pid])byId[pid]['Horas trabalhadas']=hhmm;});
+    render();
+  }catch(err){
+    protocolos.forEach(p=>HORAS_TRIED.delete(p)); // tenta de novo na próxima renderização
+  }finally{
+    HORAS_INFLIGHT=false;
+  }
+}
+
 /* ---------- RENDER ---------- */
 function render(){
+  renderEntityFilterOptions();
+  const activeEntity=getActiveEntity();
+
   // derbox
   const der=[];
   if(derInfo.orpen.length)der.push('<b>Orpen:</b> '+derInfo.orpen.join('; '));
@@ -590,8 +905,8 @@ function render(){
   if(ORPEN){
     let tot=0,notas=[];
     ORPEN.rows.forEach(r=>{
-      if(ORPEN.algumaEntidadeParticipa(r))tot++;
-      const nt=num(r[ORPEN.cNota]);if(!isNaN(nt))notas.push(nt);});
+      if(orpenParticipa(r,activeEntity))tot++;
+      if(orpenNotaConta(r,activeEntity)){const nt=num(r[ORPEN.cNota]);if(!isNaN(nt))notas.push(nt);}});
     document.querySelectorAll('[data-kpi=totO]').forEach(el=>el.textContent=tot);
     if(notas.length){const media=notas.reduce((a,b)=>a+b)/notas.length;
       document.querySelectorAll('[data-kpi=sat]').forEach(el=>
@@ -601,36 +916,43 @@ function render(){
     if(per)document.querySelectorAll('[data-kpi=per]').forEach(el=>el.textContent=per);
   }
   if(QUAL){
-    document.querySelectorAll('[data-kpi=totQ]').forEach(el=>el.textContent=QUAL.rows.length);
-    let sla=0;QUAL.rows.forEach(r=>{if(QUAL.dentroSLA(r))sla++;});
-    document.querySelectorAll('[data-kpi=sla]').forEach(el=>el.innerHTML=QUAL.rows.length
-      ? sla+'<span class="sub">'+pct1(sla/QUAL.rows.length)+'</span>' : sla);
+    const rowsQ=QUAL.rows.filter(r=>qualParticipa(r,activeEntity));
+    document.querySelectorAll('[data-kpi=totQ]').forEach(el=>el.textContent=rowsQ.length);
+    let sla=0;rowsQ.forEach(r=>{if(QUAL.dentroSLA(r))sla++;});
+    document.querySelectorAll('[data-kpi=sla]').forEach(el=>el.innerHTML=rowsQ.length
+      ? sla+'<span class="sub">'+pct1(sla/rowsQ.length)+'</span>' : sla);
   }
 
   // chart por dia (agrupa pela data de FINALIZAÇÃO do atendimento, não pelo início) —
-  // só conta atendimentos de agentes mapeados (mesmo critério do KPI "Total Atendimentos ORPEN")
+  // só conta atendimentos do agente ativo (ou de algum agente mapeado, no agregado)
+  // dia/diaQ ficam no escopo de render() pois o gráfico combinado (aba Geral)
+  // reaproveita os dois mapas juntos, além dos gráficos individuais por aba.
+  let dia={},diaQ={};
   if(ORPEN){
     const cChart=ORPEN.cFimAtend||ORPEN.cData;
-    const dia={};ORPEN.rows.forEach(r=>{
-      if(!ORPEN.algumaEntidadeParticipa(r))return;
+    ORPEN.rows.forEach(r=>{
+      if(!orpenParticipa(r,activeEntity))return;
       const d=parseDateBR(r[cChart]);if(!d)return;
       const k=dateKey(d);dia[k]=(dia[k]||0)+1;});
     paintDayChart(document.querySelectorAll('.chart-orpen'),dia,'atendimento');
   }
 
   // chart por dia (Qualitor) — agrupa pelo "Dia" (ou Abertura) de cada chamado,
-  // só contando chamados de responsáveis vinculados a algum agente mapeado
+  // só contando chamados do agente ativo (ou de algum agente mapeado, no agregado)
   if(QUAL){
-    const diaQ={};QUAL.rows.forEach(r=>{
-      if(!QUAL.algumaEntidadeParticipa(r))return;
+    QUAL.rows.forEach(r=>{
+      if(!qualParticipa(r,activeEntity))return;
       const k=QUAL.diaLinha(r);if(!k)return;
       diaQ[k]=(diaQ[k]||0)+1;});
     paintDayChart(document.querySelectorAll('.chart-qual'),diaQ,'chamado');
   }
 
-  // cards agentes
+  // gráfico combinado (aba Geral) — reaproveita os mesmos mapas dia/diaQ
+  if(ORPEN||QUAL)paintComboChart(document.querySelectorAll('.chart-combo'),dia,diaQ);
+
+  // cards agentes — com filtro ativo, mostra só a entidade selecionada
   const box=document.getElementById('agentesBox');box.innerHTML='';
-  ENTITIES.forEach(entity=>{
+  (activeEntity?[activeEntity]:ENTITIES).forEach(entity=>{
     const r=calcEntity(entity);
     const satMedia=r.notas.length?r.notas.reduce((a,b)=>a+b)/r.notas.length:null;
     const sat=satMedia!=null?satMedia.toFixed(2).replace('.',',')+'<span class="vsub">'+satPct(satMedia)+'</span>':'—';
@@ -653,16 +975,17 @@ function render(){
     box.appendChild(el);
   });
 
-  // hbars
+  // hbars — com filtro ativo, mostra só a barra da entidade selecionada
+  const entsForBars=activeEntity?[activeEntity]:ENTITIES;
   if(ORPEN){
-    const v=ENTITIES.map(e=>calcEntity(e).atend);const mx=Math.max(...v,1);
-    const html=ENTITIES.map((e,i)=>
+    const v=entsForBars.map(e=>calcEntity(e).atend);const mx=Math.max(...v,1);
+    const html=entsForBars.map((e,i)=>
       `<div class="hbar-row"><div class="name">${esc(e.nome)}</div><div class="hbar-track"><div class="hbar-fill" style="width:${v[i]/mx*100}%">${v[i]}</div></div></div>`).join('')||'<div class="empty">—</div>';
     document.querySelectorAll('.hb-orpen').forEach(el=>el.innerHTML=html);
   }
   if(QUAL){
-    const v=ENTITIES.map(e=>calcEntity(e).chamados);const mx=Math.max(...v,1);
-    const html=ENTITIES.map((e,i)=>
+    const v=entsForBars.map(e=>calcEntity(e).chamados);const mx=Math.max(...v,1);
+    const html=entsForBars.map((e,i)=>
       `<div class="hbar-row"><div class="name">${esc(e.nome)}</div><div class="hbar-track"><div class="hbar-fill" style="width:${v[i]/mx*100}%">${v[i]}</div></div></div>`).join('')||'<div class="empty">—</div>';
     document.querySelectorAll('.hb-qual').forEach(el=>el.innerHTML=html);
   }
@@ -670,6 +993,7 @@ function render(){
   renderDiag();
   renderMapping();
   document.getElementById('btnExport').style.display=(ORPEN||QUAL)?'inline-block':'none';
+  maybeEnrichHoras();
 }
 
 function renderMapping(){
@@ -692,7 +1016,7 @@ function renderMapping(){
     const inp=document.getElementById('newEntityNome');
     const nome=inp.value.trim();if(!nome)return;
     ENTITIES.push({id:nextEid++,nome,orpenLinks:[],qualLinks:[]});
-    inp.value='';render();
+    inp.value='';render();saveMapping();
   };
   document.getElementById('btnExportMap').onclick=exportMapping;
   document.getElementById('fImportMap').onchange=e=>{if(e.target.files[0])importMapping(e.target.files[0]);};
@@ -742,7 +1066,7 @@ function renderMapping(){
 
   // remove entity buttons
   b.querySelectorAll('[data-rmei]').forEach(btn=>{
-    btn.onclick=()=>{ENTITIES.splice(+btn.dataset.rmei,1);render();};
+    btn.onclick=()=>{ENTITIES.splice(+btn.dataset.rmei,1);render();saveMapping();};
   });
   // chip remove (unlink)
   b.querySelectorAll('.chip-rm').forEach(btn=>{
@@ -751,7 +1075,7 @@ function renderMapping(){
       const arr=btn.dataset.kind==='orpen'?e.orpenLinks:e.qualLinks;
       const idx=arr.findIndex(s=>s===btn.dataset.src);
       if(idx>=0)arr.splice(idx,1);
-      render();
+      render();saveMapping();
     };
   });
   // selects to link
@@ -761,7 +1085,7 @@ function renderMapping(){
       const e=ENTITIES.find(x=>x.id===+sel.dataset.eid);if(!e)return;
       if(sel.dataset.kind==='orpen'){if(!e.orpenLinks.includes(val))e.orpenLinks.push(val);}
       else{if(!e.qualLinks.includes(val))e.qualLinks.push(val);}
-      render();
+      render();saveMapping();
     };
   });
 
@@ -898,11 +1222,56 @@ function importMapping(file){
         orpenLinks:(en.orpenLinks||[]).filter(s=>orpNorm.has(norm(s))),
         qualLinks:(en.qualLinks||[]).filter(s=>quaNorm.has(norm(s))),
       })).filter(en=>en.nome);
-      render();
+      render();saveMapping();
     }catch(err){alert('Erro ao importar mapeamento: '+err.message);}
   };
   reader.readAsText(file);
 }
+
+/* ---------- mapeamento de entidades (persistido no servidor) ---------- */
+// substitui a memória volátil do navegador: ao mudar ENTITIES, salva no
+// backend (debounced); ao carregar a página, busca o que já foi salvo.
+// exportMapping/importMapping continuam existindo como backup manual à parte.
+let SAVE_MAPPING_TIMER=null;
+let MAPPING_LOADED=false; // evita salvar (e sobrescrever com []) antes do GET inicial resolver
+function saveMapping(){
+  if(!MAPPING_LOADED)return;
+  clearTimeout(SAVE_MAPPING_TIMER);
+  SAVE_MAPPING_TIMER=setTimeout(()=>{
+    fetch('/api/entities',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({entities:ENTITIES})}).catch(()=>{});
+  },400);
+}
+window.addEventListener('beforeunload',()=>{
+  if(!SAVE_MAPPING_TIMER)return;
+  clearTimeout(SAVE_MAPPING_TIMER);
+  navigator.sendBeacon('/api/entities', new Blob([JSON.stringify({entities:ENTITIES})],{type:'application/json'}));
+});
+async function loadMapping(){
+  try{
+    const res=await fetch('/api/entities');
+    if(res.ok){
+      const obj=await res.json();
+      // só aplica se nada foi criado ainda nesta sessão (evita sobrescrever
+      // uma edição feita nos poucos ms antes do fetch resolver)
+      if(Array.isArray(obj.entities)&&!ENTITIES.length&&nextEid===1){
+        // não filtra orpenLinks/qualLinks contra ORPEN_SOURCES/QUAL_SOURCES aqui
+        // (diferente do importMapping) — no carregamento da página essas listas
+        // ainda estão vazias, e filtrar agora apagaria todo vínculo salvo.
+        // rebuildSourceLists() já poda vínculos obsoletos quando dados reais chegam.
+        ENTITIES=obj.entities.map(en=>({
+          id:nextEid++,
+          nome:String(en.nome||'').trim(),
+          orpenLinks:Array.isArray(en.orpenLinks)?en.orpenLinks.slice():[],
+          qualLinks:Array.isArray(en.qualLinks)?en.qualLinks.slice():[],
+        })).filter(en=>en.nome);
+        render();
+      }
+    }
+  }catch(err){/* melhor esforço — exportar/importar seguem como fallback manual */}
+  finally{MAPPING_LOADED=true;}
+}
+loadMapping();
 
 function handle(file,slotHint){
   const tagId=slotHint==='A'?'tagA':'tagB';
@@ -924,6 +1293,9 @@ function handle(file,slotHint){
 document.getElementById('fA').addEventListener('change',e=>{if(e.target.files[0])handle(e.target.files[0],'A');});
 document.getElementById('fB').addEventListener('change',e=>{if(e.target.files[0])handle(e.target.files[0],'B');});
 document.getElementById('btnExport').addEventListener('click',exportExcel);
+document.getElementById('selEntityFilter').addEventListener('change',e=>{
+  ACTIVE_ENTITY_ID=e.target.value?+e.target.value:null;render();
+});
 
 /* ---------- busca ORPEN via API (backend local) ---------- */
 // yyyy-mm-dd (input date) -> dd/mm/aaaa (formato da API Orpen)
@@ -956,7 +1328,6 @@ async function fetchOrpenApi(){
     btn.disabled=false;
   }
 }
-document.getElementById('btnOrpenApi').addEventListener('click',fetchOrpenApi);
 
 /* ---------- busca QUALITOR via API (backend local) ---------- */
 // diferente da Orpen, o /api/qualitor/sync não recebe período — ele sempre
@@ -992,12 +1363,19 @@ async function fetchQualitorApi(){
 }
 document.getElementById('btnQualitorApi').addEventListener('click',fetchQualitorApi);
 
+// botão principal busca as duas fontes juntas (Orpen + Qualitor), em paralelo —
+// uma falhar não impede a outra de completar (Promise.allSettled)
+async function fetchAllApi(){
+  await Promise.allSettled([fetchOrpenApi(),fetchQualitorApi()]);
+}
+document.getElementById('btnOrpenApi').addEventListener('click',fetchAllApi);
+
 document.getElementById('btnSyncOntem').addEventListener('click',()=>{
   const ontem=new Date();ontem.setDate(ontem.getDate()-1);
   const iso=ontem.toISOString().slice(0,10);
   document.getElementById('orpenStart').value=iso;
   document.getElementById('orpenEnd').value=iso;
-  fetchOrpenApi();
+  fetchAllApi();
 });
 
 /* ---------- abas (Visão Geral / ORPEN / QUALITOR) ---------- */
@@ -1011,6 +1389,110 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
     });
   });
 });
+
+/* ---------- login (protege o dashboard inteiro) ---------- */
+async function checkAuth(){
+  const res=await fetch('/api/session');
+  const data=await res.json();
+  document.getElementById('loginOverlay').style.display=data.authed?'none':'flex';
+  return data.authed;
+}
+document.getElementById('loginForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const pass=document.getElementById('loginPassword').value;
+  const errBox=document.getElementById('loginError');
+  errBox.style.display='none';
+  try{
+    const res=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({password:pass})});
+    const data=await res.json();
+    if(!res.ok)throw new Error(data.error||'falha ao entrar');
+    location.reload();
+  }catch(err){
+    errBox.textContent=err.message;errBox.style.display='block';
+  }
+});
+document.getElementById('btnLogout').addEventListener('click',async()=>{
+  await fetch('/api/logout',{method:'POST'});
+  location.reload();
+});
+
+/* ---------- credenciais (Orpen/Qualitor) — editar sem precisar de SSH ---------- */
+const CREDS_FIELDS=[
+  {group:'Orpen',key:'ORPEN_BASE_URL',label:'URL da API'},
+  {group:'Orpen',key:'ORPEN_AUTH_HEADER',label:'Auth Header'},
+  {group:'Orpen',key:'ORPEN_USER_ID',label:'User ID'},
+  {group:'Orpen',key:'ORPEN_REPORT_ID',label:'Report ID'},
+  {group:'Qualitor',key:'QUALITOR_BASE_URL',label:'URL da API'},
+  {group:'Qualitor',key:'QUALITOR_USER',label:'Usuário'},
+  {group:'Qualitor',key:'QUALITOR_PASSWORD',label:'Senha'},
+  {group:'Qualitor',key:'QUALITOR_COMPANY',label:'Company'},
+  {group:'Qualitor',key:'QUALITOR_CUSTOMER',label:'Customer'},
+  {group:'Qualitor',key:'QUALITOR_SCOPE',label:'Scope'},
+];
+async function renderCreds(){
+  const box=document.getElementById('credsBody');
+  box.innerHTML='<div class="empty">Carregando…</div>';
+  let values;
+  try{
+    const res=await fetch('/api/config');
+    if(!res.ok)throw new Error('falha ao carregar credenciais');
+    values=await res.json();
+  }catch(err){
+    box.innerHTML=`<div class="empty">Erro ao carregar: ${esc(err.message)}</div>`;
+    return;
+  }
+
+  box.innerHTML=['Orpen','Qualitor'].map(g=>`
+    <div class="creds-group">
+      <h4>${g}</h4>
+      ${CREDS_FIELDS.filter(f=>f.group===g).map(f=>`
+        <div class="creds-field">
+          <label for="creds_${f.key}">${esc(f.label)}</label>
+          <div class="creds-input-wrap">
+            <input type="password" id="creds_${f.key}" value="${esc(values[f.key]||'')}">
+            <button type="button" class="creds-toggle" data-toggle="${f.key}" title="Mostrar/ocultar">👁</button>
+          </div>
+        </div>`).join('')}
+    </div>`).join('')
+    +`<div class="creds-actions">
+        <button id="btnSaveCreds" class="upbtn">Salvar</button>
+        <button id="btnReloadCreds" class="upbtn sec">🔄 Recarregar valores atuais</button>
+        <span id="credsTag" class="tag"></span>
+      </div>`;
+
+  box.querySelectorAll('.creds-toggle').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const inp=document.getElementById('creds_'+btn.dataset.toggle);
+      inp.type=inp.type==='password'?'text':'password';
+    });
+  });
+  document.getElementById('btnReloadCreds').addEventListener('click',renderCreds);
+  document.getElementById('btnSaveCreds').addEventListener('click',saveCreds);
+}
+async function saveCreds(){
+  const btn=document.getElementById('btnSaveCreds');
+  const tag=document.getElementById('credsTag');
+  const body={};
+  CREDS_FIELDS.forEach(f=>{body[f.key]=document.getElementById('creds_'+f.key).value;});
+  btn.disabled=true;tag.textContent='salvando…';tag.className='tag';
+  try{
+    const res=await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body)});
+    const data=await res.json();
+    if(!res.ok)throw new Error(data.error||'falha ao salvar');
+    tag.textContent='✓ credenciais salvas';tag.className='tag ok';
+  }catch(err){
+    tag.textContent='✗ '+err.message;tag.className='tag err';
+  }finally{
+    btn.disabled=false;
+  }
+}
+
+(async()=>{
+  const authed=await checkAuth();
+  if(authed)renderCreds();
+})();
 </script>
 </body>
 </html>

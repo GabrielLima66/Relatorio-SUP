@@ -39,6 +39,12 @@ CREATE TABLE IF NOT EXISTS qualitor_sync_state (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     next_offset INTEGER NOT NULL DEFAULT 0
 );
+
+CREATE TABLE IF NOT EXISTS entities_mapping (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    data_json TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
 """
 
 
@@ -172,6 +178,81 @@ def query_qualitor_chamados(start_iso=None, end_iso=None):
         conn.close()
 
 
+def update_horas_trabalhadas(hours_by_id):
+    """hours_by_id: {protocolo: 'HH:MM'}. Atualiza só o campo 'Horas trabalhadas'
+    dos chamados já armazenados (busca à parte, feita sob demanda — ver
+    qualitor_client.fetch_horas_trabalhadas_bulk), sem mexer no resto do registro."""
+    if not hours_by_id:
+        return
+    conn = get_connection()
+    try:
+        for ticket_id, hhmm in hours_by_id.items():
+            row = conn.execute(
+                "SELECT data_json FROM qualitor_chamados WHERE id = ?", (ticket_id,)
+            ).fetchone()
+            if not row:
+                continue
+            data = json.loads(row["data_json"])
+            data["Horas trabalhadas"] = hhmm
+            conn.execute(
+                "UPDATE qualitor_chamados SET data_json = ? WHERE id = ?",
+                (json.dumps(data, ensure_ascii=False), ticket_id),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def update_dentro_do_sla(sla_by_id):
+    """sla_by_id: {protocolo: 'No Prazo'|'Fora do Prazo'}. Mesmo padrão de
+    update_horas_trabalhadas — usado pra backfill dos chamados sincronizados
+    antes do campo 'Dentro do SLA?' (baseado em is_overdue) existir."""
+    if not sla_by_id:
+        return
+    conn = get_connection()
+    try:
+        for ticket_id, valor in sla_by_id.items():
+            row = conn.execute(
+                "SELECT data_json FROM qualitor_chamados WHERE id = ?", (ticket_id,)
+            ).fetchone()
+            if not row:
+                continue
+            data = json.loads(row["data_json"])
+            data["Dentro do SLA?"] = valor
+            conn.execute(
+                "UPDATE qualitor_chamados SET data_json = ? WHERE id = ?",
+                (json.dumps(data, ensure_ascii=False), ticket_id),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def update_protocolo_vinculado(vinculo_by_id):
+    """vinculo_by_id: {protocolo_qualitor: protocolo_orpen_ou_''}. Mesmo padrão de
+    update_dentro_do_sla — usado pra backfill dos chamados sincronizados antes do
+    campo 'Protocolo Orpen Vinculado' existir."""
+    if not vinculo_by_id:
+        return
+    conn = get_connection()
+    try:
+        for ticket_id, valor in vinculo_by_id.items():
+            row = conn.execute(
+                "SELECT data_json FROM qualitor_chamados WHERE id = ?", (ticket_id,)
+            ).fetchone()
+            if not row:
+                continue
+            data = json.loads(row["data_json"])
+            data["Protocolo Orpen Vinculado"] = valor
+            conn.execute(
+                "UPDATE qualitor_chamados SET data_json = ? WHERE id = ?",
+                (json.dumps(data, ensure_ascii=False), ticket_id),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def get_qualitor_offset():
     conn = get_connection()
     try:
@@ -188,6 +269,34 @@ def set_qualitor_offset(offset):
             """INSERT INTO qualitor_sync_state (id, next_offset) VALUES (1, ?)
                ON CONFLICT(id) DO UPDATE SET next_offset=excluded.next_offset""",
             (offset,),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_entities_mapping():
+    """Retorna a lista de entidades (ver formato em index.html: ENTITIES),
+    ou [] se nunca foi salva."""
+    conn = get_connection()
+    try:
+        row = conn.execute("SELECT data_json FROM entities_mapping WHERE id = 1").fetchone()
+        return json.loads(row["data_json"]) if row else []
+    finally:
+        conn.close()
+
+
+def set_entities_mapping(entities):
+    """entities: lista de {id, nome, orpenLinks, qualLinks} — salva o grafo
+    inteiro de uma vez (o front-end já trata ENTITIES como um bloco atômico,
+    sem necessidade de consulta por entidade individual)."""
+    conn = get_connection()
+    now = datetime.now(timezone.utc).isoformat()
+    try:
+        conn.execute(
+            """INSERT INTO entities_mapping (id, data_json, updated_at) VALUES (1, ?, ?)
+               ON CONFLICT(id) DO UPDATE SET data_json=excluded.data_json, updated_at=excluded.updated_at""",
+            (json.dumps(entities, ensure_ascii=False), now),
         )
         conn.commit()
     finally:

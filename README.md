@@ -32,10 +32,14 @@ disponíveis como alternativa/fallback caso alguma das APIs esteja fora do ar.
   - `POST /api/qualitor/sync {}` — sincroniza os chamados novos do Qualitor (ver abaixo).
   - `GET /api/qualitor/data?start=...&end=...` — devolve os chamados já armazenados no
     período, filtrando pela data de **Abertura**.
+  - `POST /api/qualitor/horas {protocolos:[...]}` — busca (sob demanda, em paralelo) as horas
+    trabalhadas dos chamados informados e grava no SQLite (ver "Horas trabalhadas" abaixo).
+  - `GET /api/entities` / `POST /api/entities {entities:[...]}` — carrega/salva o mapeamento
+    de agentes (ver "Mapeamento manual de agentes" abaixo).
   - `GET /api/orpen/log` — histórico das sincronizações de ambas as fontes (coluna `source`
     distingue `orpen`/`qualitor`): data, período, linhas, sucesso/erro.
 - `backend/db.py` — schema SQLite (`orpen_atendimentos`, `qualitor_chamados`,
-  `qualitor_sync_state`, `sync_log`).
+  `qualitor_sync_state`, `entities_mapping`, `sync_log`).
 - `backend/orpen_client.py` — chamada HTTP à API da Orpen (`report_json`, reportId 97).
 - `backend/qualitor_client.py` — chamada HTTP à API do Qualitor (login/refresh de token,
   paginação de `/ticket/list`, mapeamento dos campos do ticket para as colunas do export
@@ -60,13 +64,26 @@ os dados mais recentes.
   curta que o limite (fim da lista).
   - **Limitação conhecida**: como não há resync de chamados antigos, um chamado que mudar de
     situação/for encerrado bem depois de já ter sido sincronizado não é atualizado
-    automaticamente. Se isso importar, será preciso um resync periódico da janela recente
-    (não implementado ainda).
+    automaticamente — isso também afeta o **"Dentro do SLA?"** de chamados ainda abertos
+    (ver abaixo): o valor reflete o momento da sincronização, não "agora". Se isso importar,
+    será preciso um resync periódico da janela recente (não implementado ainda).
 - Certificado do host (`172.31.1.81`) não bate com o domínio (`*.rcxit.com.br`) por ser
   acesso via IP interno/VPN — o client desabilita a verificação de TLS especificamente para
   essas chamadas.
+- **Horas trabalhadas** não vem no `/ticket/list` — é preciso um `GET /ticket/{id}/followup`
+  por chamado, somando a duração dos followups do tipo `HORAS TRABALHADAS`. Como isso custa
+  uma chamada de API por chamado, o front-end só pede (via `POST /api/qualitor/horas`) as
+  horas dos chamados cujo Responsável já está vinculado a alguma entidade mapeada — nunca
+  para o histórico inteiro. As buscas rodam em paralelo (~15 por vez) e o resultado fica
+  salvo no SQLite, então não é repetido depois da primeira vez.
+- **Dentro do SLA?** usa o campo `is_overdue` que a própria API já devolve em `/ticket/list`
+  (de graça, sem chamada extra) — ele é calculado ao vivo pelo Qualitor, inclusive pra
+  chamados ainda abertos (compara com "agora", não só com a data de encerramento). Isso
+  substituiu uma comparação manual (`Encerramento ≤ Previsão de resposta`) que só fazia
+  sentido pra chamados já fechados e contava todo chamado aberto como "fora do prazo" —
+  no mesmo período de teste, a correção mudou o SLA de 37,1% para 83,7%.
 
-### Sincronização diária automática
+### Sincronização diária automática — Orpen
 
 `backend/sync_daily.py` sincroniza um único dia (por padrão, "ontem") sem precisar do
 servidor Flask de pé — é pensado para rodar via **cron** no servidor onde isso for
@@ -80,6 +97,23 @@ Windows). Ainda não está agendado; quando o servidor estiver de pé, adicione 
 Isso roda todo dia às 2h, sincronizando os atendimentos do dia anterior. Pode testar a
 qualquer momento rodando manualmente: `python sync_daily.py` (sincroniza ontem) ou
 `python sync_daily.py 24/06/2026` (data específica).
+
+### Sincronização diária automática — Qualitor
+
+`backend/sync_qualitor_daily.py` é o equivalente para o Qualitor — também roda sozinho,
+sem o Flask de pé. Diferente do Orpen, não recebe data nenhuma: continua de onde o cursor
+(`qualitor_sync_state.next_offset`) parou, exatamente como o botão "Buscar QUALITOR (API)"
+faz. É um script separado (não um só cobrindo as duas fontes) porque o modelo de
+sincronização é fundamentalmente diferente — Orpen é por intervalo de datas, Qualitor é
+por cursor/offset.
+
+```cron
+10 2 * * * cd /caminho/para/backend && /usr/bin/python3 sync_qualitor_daily.py >> sync_qualitor_daily.log 2>&1
+```
+
+Alguns minutos depois do Orpen é só por organização (evitar os dois batendo na rede ao
+mesmo tempo); não há dependência real entre os dois. Testar manualmente:
+`python sync_qualitor_daily.py`.
 
 ## Plug and play
 
@@ -100,8 +134,11 @@ Quando o arquivo já vem com as colunas prontas (`Agente Finalizador`,
    do Excel). O finalizador é quem tem a **maior posição** (apareceu mais à direita na
    cadeia). Nenhum vínculo encontrado → `Outros`.
 
-2. **Dentro do SLA (Qualitor)** — chamado com `Situação = Encerrado` **e**
-   `Encerramento ≤ Previsão de resposta`.
+2. **Dentro do SLA (Qualitor)** — quando os dados vêm da API, usa o `is_overdue` que o
+   próprio Qualitor calcula (ver "Particularidades da API do Qualitor" acima). Só é
+   **derivado** manualmente (`Encerramento ≤ Previsão de resposta`, sem filtrar por
+   Situação) quando falta a coluna `Dentro do SLA?`/`Dentro do SLA` — ou seja, no upload
+   manual do export do Qualitor, que não tem `is_overdue`.
 
 3. **Dia (Qualitor)** — data extraída da coluna `Abertura`.
 
@@ -130,22 +167,82 @@ e do Qualitor pertencem ao mesmo agente.
 4. Um mesmo nome-fonte só pode pertencer a uma entidade.
 5. Nomes ainda não vinculados aparecem na seção **"sem vínculo"** ao final do painel.
 
+### Persistência
+
+O mapeamento é salvo automaticamente no SQLite (`entities_mapping`) a cada mudança — criar/
+remover entidade, vincular/desvincular nome. Ao abrir a página, o mapeamento salvo é
+recarregado sozinho; não depende mais de exportar/importar para sobreviver entre sessões.
+
 ### Exportar / importar mapeamento
 
 - **⬇ Exportar mapeamento** — salva um arquivo `.json` com todas as entidades e
-  seus vínculos. Guarde-o junto com os relatórios do mês.
+  seus vínculos. Útil como backup manual ou para copiar o mapeamento entre ambientes
+  (ex.: de um `dashboard.db` de teste para o de produção).
 - **⬆ Importar mapeamento** — carrega um `.json` exportado anteriormente. Vínculos
   cujos nomes-fonte não existam nos relatórios carregados são descartados
   silenciosamente.
 
-O mapeamento **não é salvo automaticamente** (sem `localStorage`) — exporte sempre
-que quiser preservar a configuração entre sessões.
+## Deploy em produção (Docker)
+
+Isto ainda é um runbook para quando o servidor Linux existir — nada aqui foi aplicado de
+verdade, é o roteiro a seguir na hora. `Dockerfile` e `docker-compose.yml` na raiz do repo
+já implementam o que está descrito abaixo.
+
+- **Imagem**: só as dependências Python (`backend/requirements.txt`) entram na imagem. O
+  código (`backend/`, `index.html`, `assets/`) vem de um **bind mount do repo inteiro**
+  (`.:/app` no compose) — atualizar o app em produção é `git pull` + `docker compose up -d
+  --build` (rebuild só é necessário se `requirements.txt` mudou; senão um `restart` já
+  pega o código novo).
+- **`.env` / `dashboard.db` / `qualitor_session.json`**: ficam exatamente onde o código já
+  espera (`backend/`, ao lado dos scripts) — como o repo inteiro é montado no container,
+  nenhuma mudança de caminho ou volume extra é necessária. Todos os três já estão no
+  `.gitignore`, então `git pull` no servidor nunca toca neles. Provisionamento inicial:
+  `.env` de produção é editado à mão e enviado por `scp`/SSH direto (nunca via git);
+  `dashboard.db` começa vazio (`db.init_db()` cria sozinho) ou, pra levar o histórico já
+  sincronizado, um `scp` avulso do arquivo atual; `qualitor_session.json` não precisa de
+  nada, é criado no primeiro login.
+- **Porta**: `docker-compose.yml` publica a porta 5000 só na interface da VPN do servidor
+  (trocar o placeholder `SEU_IP_VPN` pelo IP real) — evita expor o dashboard em outras
+  redes do host. Sem nginx na frente; não é necessário.
+- **Supervisão**: `restart: unless-stopped` no compose cobre reinício em crash e nas
+  próximas subidas do Docker daemon (inclusive no boot da máquina, se o daemon já estiver
+  configurado pra subir sozinho) — sem precisar de unit de systemd separada pro app.
+- **Cron**: `sync_daily.py` e `sync_qualitor_daily.py` continuam agendados via crontab do
+  **host** (não um cron dentro do container), executando dentro do container já em pé com
+  `docker exec`:
+
+  ```cron
+  0 2 * * * docker exec dashboard-sup python sync_daily.py >> /opt/dashboard-sup/backend/sync_daily.log 2>&1
+  10 2 * * * docker exec dashboard-sup python sync_qualitor_daily.py >> /opt/dashboard-sup/backend/sync_qualitor_daily.log 2>&1
+  ```
+
+- **Passo a passo (primeira subida)**:
+  1. No servidor: `git clone <repo> /opt/dashboard-sup && cd /opt/dashboard-sup`.
+  2. Criar `backend/.env` (copiar de `backend/.env.example` e preencher com as credenciais
+     reais — `scp`/editor direto no servidor, nunca via git).
+  3. Editar `docker-compose.yml`, trocando `SEU_IP_VPN` pelo IP real da interface VPN do
+     servidor.
+  4. `docker compose up -d --build`.
+  5. Conferir: `curl http://SEU_IP_VPN:5000/api/session` (ou abrir no navegador, de uma
+     máquina na mesma VPN).
+  6. Adicionar as duas linhas de cron acima (`crontab -e` no host).
+- **Deploy de código depois da primeira vez**: SSH manual — `git pull` +
+  `docker compose up -d --build` (ou só `docker compose restart` se não mexeu em
+  dependências). Sem CI/CD por ora (escala do projeto não justifica ainda).
 
 ## Próximos passos (ideias)
 
 - Resync periódico da janela recente do Qualitor, para capturar chamados antigos que
   mudaram de situação/foram encerrados depois da sincronização inicial.
-- Agendar a sincronização da Orpen e do Qualitor automaticamente (frequência a definir —
-  diária?).
-- Filtros clicáveis por data e por agente.
+- Filtros clicáveis por data (o filtro por agente já existe — seletor "Ver dados de:" acima
+  dos KPIs).
 - Exportar o dashboard renderizado em PDF.
+- **Vincular chamado Qualitor ↔ atendimento Orpen pelo corpo do chamado**: o campo
+  `description` do ticket (texto livre, retornado pelo `/ticket/list` — hoje não
+  sincronizado, ver "Você tem acesso ao corpo do chamado?") às vezes menciona o protocolo da
+  Orpen no meio do texto (ex.: "Verificar o protocolo 440130..."). A ideia é procurar um
+  padrão tipo `Protocolo:xxxx` (ou variações — precisa levantar os formatos reais usados)
+  nessa descrição pra vincular automaticamente o chamado do Qualitor ao atendimento
+  correspondente da Orpen, complementando/reforçando o vínculo hoje feito só por nome de
+  agente. Ainda não implementado — precisa decidir se o `description` passa a ser
+  sincronizado e onde esse vínculo fica armazenado.
